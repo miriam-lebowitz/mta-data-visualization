@@ -199,10 +199,10 @@ export default function AlertsSidebar({
       </div>
 
       {/* Scrollable content */}
-      <div className="flex-1 overflow-y-auto p-3 scrollbar-thin">
+      <div className="flex-1 overflow-y-auto p-2 scrollbar-thin">
         {/* Line visibility toggles */}
         {lineOptions.length > 0 && onToggleLine && (
-          <div className="retro-panel p-2 mb-3">
+          <div className="retro-panel p-2 mb-2">
             <div className="flex items-center justify-between gap-2 mb-2">
               <p className="text-[9px] font-black tracking-[0.14em] uppercase text-ink/60">
                 Visible Lines
@@ -252,7 +252,7 @@ export default function AlertsSidebar({
         )}
 
         {/* Nearest trains */}
-        <div className="retro-panel p-2 mb-3">
+        <div className="retro-panel p-2 mb-2">
           <p className="text-[9px] font-black tracking-[0.14em] uppercase text-ink/60 mb-2">
             Nearest Trains
           </p>
@@ -344,14 +344,12 @@ export default function AlertsSidebar({
         )}
 
         {!loading && !error && alerts.length === 0 && (
-          <div className="text-center py-3">
-            <div className="text-xl mb-1 text-signal-green" aria-hidden="true">
-              ◉
+          <div className="flex items-center gap-2 py-1.5 px-1">
+            <span className="text-base leading-none text-signal-green shrink-0" aria-hidden="true">◉</span>
+            <div>
+              <p className="text-[11px] font-black tracking-widest uppercase status-ok leading-tight">Good Service</p>
+              <p className="text-[9px] text-ink/50 leading-tight">All lines operating normally</p>
             </div>
-            <p className="text-[11px] font-black tracking-widest uppercase status-ok">
-              Good Service
-            </p>
-            <p className="text-[10px] text-ink/50 mt-0.5">All lines operating normally</p>
           </div>
         )}
 
