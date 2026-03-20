@@ -11,6 +11,14 @@ interface Alert {
   updatedAt: string;
 }
 
+type LineOption = {
+  id: string;
+  short_name: string;
+  slug: string;
+  color: string;
+  text_color: string;
+};
+
 const SEVERITY_COLOR: Record<Alert["severity"], string> = {
   major: "var(--signal-red)",
   minor: "var(--signal-yellow)",
@@ -72,7 +80,19 @@ function AlertCard({ alert }: { alert: Alert }) {
   );
 }
 
-export default function AlertsSidebar() {
+export default function AlertsSidebar({
+  lineOptions = [],
+  visibleLineSlugs = null,
+  onToggleLine,
+  onShowAllLines,
+  onHideAllLines,
+}: {
+  lineOptions?: LineOption[];
+  visibleLineSlugs?: string[] | null;
+  onToggleLine?: (slug: string) => void;
+  onShowAllLines?: () => void;
+  onHideAllLines?: () => void;
+}) {
   const [alerts, setAlerts] = useState<Alert[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
@@ -119,6 +139,55 @@ export default function AlertsSidebar() {
 
       {/* Alert list */}
       <div className="flex-1 overflow-y-auto p-3 scrollbar-thin">
+        {lineOptions.length > 0 && onToggleLine && (
+          <div className="retro-panel p-2 mb-3">
+            <div className="flex items-center justify-between gap-2 mb-2">
+              <p className="text-[9px] font-black tracking-[0.14em] uppercase text-ink/60">
+                Visible Lines
+              </p>
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  className="text-[9px] font-bold text-ink/60 hover:text-ink"
+                  onClick={onShowAllLines}
+                >
+                  All
+                </button>
+                <button
+                  type="button"
+                  className="text-[9px] font-bold text-ink/60 hover:text-ink"
+                  onClick={onHideAllLines}
+                >
+                  None
+                </button>
+              </div>
+            </div>
+            <div className="grid grid-cols-4 gap-1.5">
+              {lineOptions.map((line) => {
+                const isOn = visibleLineSlugs === null || visibleLineSlugs.includes(line.slug);
+                return (
+                  <button
+                    key={line.slug}
+                    type="button"
+                    onClick={() => onToggleLine(line.slug)}
+                    className="h-6 rounded border text-[10px] font-black"
+                    style={{
+                      background: isOn ? line.color : "rgba(0,0,0,0.04)",
+                      color: isOn ? line.text_color || "#fff" : "var(--ink)",
+                      borderColor: isOn ? "rgba(0,0,0,0.2)" : "rgba(0,0,0,0.18)",
+                      opacity: isOn ? 1 : 0.7,
+                    }}
+                    aria-pressed={isOn}
+                    title={line.short_name}
+                  >
+                    {line.short_name}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        )}
+
         {loading && (
           <div className="space-y-2">
             {[...Array(4)].map((_, i) => (

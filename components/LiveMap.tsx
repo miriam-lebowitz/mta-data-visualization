@@ -1,9 +1,15 @@
 "use client";
 
-import L, { type LatLngExpression } from "leaflet";
-import "leaflet/dist/leaflet.css";
-import { useEffect, useMemo, useRef, useState } from "react";
-import { MapContainer, Marker, Polyline, Popup, TileLayer } from "react-leaflet";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import "mapbox-gl/dist/mapbox-gl.css";
+import Map, {
+  Layer,
+  Marker,
+  NavigationControl,
+  Popup,
+  Source,
+  type MapLayerMouseEvent,
+} from "react-map-gl/mapbox";
 import { STATION_COORDS } from "./StationCoords";
 
 type LineSummary = {
@@ -65,6 +71,7 @@ type TripResponse = {
 
 type StationArrival = {
   lineId: string;
+  lineSlug: string;
   shortName: string;
   color: string;
   textColor: string;
@@ -82,14 +89,18 @@ type TrainPoint = {
 
 type TrainSchedule = {
   key: string;
+  lineSlug: string;
   lineShortName: string;
   color: string;
   textColor: string;
   direction: "uptown" | "downtown";
+  delayed: boolean;
   points: TrainPoint[]; // in order along the trip
 };
 
-const CITY_CENTER: LatLngExpression = [40.75, -73.99];
+type LatLon = [number, number];
+
+const CITY_CENTER: LatLon = [40.75, -73.99];
 const DEFAULT_ZOOM = 11.2;
 
 function getCoords(slug: string) {
@@ -104,14 +115,24 @@ function getCoords(slug: string) {
 function splitLineSegments(points: Array<{ slug: string }>) {
   const segments: Array<Array<[number, number]>> = [];
   let current: Array<[number, number]> = [];
+  let missingRun = 0;
 
   for (const p of points) {
     const coords = getCoords(p.slug);
     if (!coords) {
-      if (current.length >= 2) segments.push(current);
-      current = [];
+      // Bridge short gaps by skipping unknown stations instead of splitting the segment.
+      // This keeps lines visually continuous when coordinate data is incomplete.
+      missingRun += 1;
       continue;
     }
+
+    // Prevent unrealistic jumps when a very long run of stations is missing.
+    if (missingRun >= 6 && current.length >= 2) {
+      segments.push(current);
+      current = [];
+    }
+    missingRun = 0;
+
     current.push([coords.lat, coords.lon]);
   }
 
@@ -175,48 +196,6 @@ function computeTrainPosition(
   return { lat, lon, atStop, nextStopSlug: nextStopSlug ?? null };
 }
 
-function trainDivIcon({
-  color,
-  textColor,
-  label,
-  atStop,
-}: {
-  color: string;
-  textColor: string;
-  label: string;
-  atStop: boolean;
-}) {
-  const border = "var(--ink)";
-  const ring = atStop ? `0 0 0 5px rgba(0,0,0,0.25)` : "none";
-  const pulse = atStop ? "train-pulse 2.2s ease-in-out infinite" : "";
-
-  return L.divIcon({
-    className: "",
-    iconAnchor: [7, 7],
-    html: `
-      <div class="train-marker" style="
-        width:14px;
-        height:14px;
-        border-radius:999px;
-        background:${color};
-        border:2px solid ${border};
-        box-shadow: ${ring};
-        ${pulse ? `animation:${pulse};` : ""}
-        display:flex;
-        align-items:center;
-        justify-content:center;
-        font-family: var(--font-barlow-condensed), sans-serif;
-        font-weight: 800;
-        font-size: 8px;
-        color:${textColor};
-        line-height:1;
-      ">
-        ${label}
-      </div>
-    `,
-  });
-}
-
 async function fetchJson<T>(url: string): Promise<T> {
   const res = await fetch(url, { headers: { "User-Agent": "mta-data-viz/1.0" } });
   return (await res.json()) as T;
@@ -244,18 +223,23 @@ async function mapWithConcurrency<T, R>(
   return results;
 }
 
-export default function LiveMap() {
-  const [lines, setLines] = useState<LineSummary[]>([]);
+export default function LiveMap({
+  visibleLineSlugs = null,
+}: {
+  visibleLineSlugs?: string[] | null;
+}) {
   const [stationArrivals, setStationArrivals] = useState<
     Record<string, StationArrival[]>
   >({});
   const [lineSegments, setLineSegments] = useState<
-    Array<{ key: string; color: string; textColor: string; segments: LatLngExpression[][] }>
+    Array<{ key: string; lineSlug: string; color: string; textColor: string; segments: LatLon[][] }>
   >([]);
   const [trains, setTrains] = useState<TrainSchedule[]>([]);
   const [nowSeconds, setNowSeconds] = useState(() => Math.floor(Date.now() / 1000));
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
   const [loading, setLoading] = useState(true);
+  const [hasLoadedOnce, setHasLoadedOnce] = useState(false);
+  const [selectedStationSlug, setSelectedStationSlug] = useState<string | null>(null);
   const abortRef = useRef<AbortController | null>(null);
 
   // Smooth-ish motion without re-fetching: recompute positions from schedule.
@@ -266,12 +250,12 @@ export default function LiveMap() {
     return () => clearInterval(id);
   }, []);
 
-  const refresh = async () => {
+  const refresh = useCallback(async () => {
     abortRef.current?.abort();
     const ac = new AbortController();
     abortRef.current = ac;
 
-    setLoading(true);
+    if (!hasLoadedOnce) setLoading(true);
 
     try {
       const linesJson = await fetchJson<{ ok: boolean; data: { lines: LineSummary[] } }>(
@@ -280,8 +264,6 @@ export default function LiveMap() {
       if (!linesJson.ok) return;
 
       const fetchedLines = linesJson.data.lines;
-      setLines(fetchedLines);
-
       // Fetch line details with limited concurrency.
       const details = await mapWithConcurrency(
         fetchedLines,
@@ -298,9 +280,10 @@ export default function LiveMap() {
       const newStationArrivals: Record<string, StationArrival[]> = {};
       const newSegments: Array<{
         key: string;
+        lineSlug: string;
         color: string;
         textColor: string;
-        segments: LatLngExpression[][];
+        segments: LatLon[][];
       }> = [];
 
       // Collect “best next trip” per line and direction.
@@ -326,6 +309,7 @@ export default function LiveMap() {
 
           const entry: StationArrival = {
             lineId: line.id,
+            lineSlug: line.slug,
             shortName: line.short_name,
             color: line.color,
             textColor: line.text_color,
@@ -356,9 +340,10 @@ export default function LiveMap() {
         if (segments.length > 0) {
           newSegments.push({
             key: `line-${line.id}`,
+            lineSlug: line.slug,
             color: line.color,
             textColor: line.text_color,
-            segments: segments as LatLngExpression[][],
+            segments: segments as LatLon[][],
           });
         }
 
@@ -422,6 +407,9 @@ export default function LiveMap() {
         if (!tj?.ok || !tj.data?.stops) continue;
 
         const points: TrainPoint[] = [];
+        const delayed = tj.data.stops.some((stop) =>
+          (stop.status ?? "").toLowerCase().includes("delay")
+        );
         for (const stop of tj.data.stops) {
           const coords = getCoords(stop.station.slug);
           if (!coords) continue;
@@ -442,10 +430,12 @@ export default function LiveMap() {
         if (points.length >= 2) {
           newTrains.push({
             key: `train-${tr.routeSlug}-${tr.direction}-${tr.tripId}`,
+            lineSlug: tr.routeSlug,
             lineShortName: tr.lineShortName,
             color: tr.line.color,
             textColor: tr.line.text_color,
             direction: tr.direction,
+            delayed,
             points,
           });
         }
@@ -463,18 +453,25 @@ export default function LiveMap() {
       setTrains(newTrains.slice(0, 28));
       setLastUpdated(new Date());
       setLoading(false);
-    } catch (e) {
+      if (!hasLoadedOnce) setHasLoadedOnce(true);
+    } catch {
       // Don’t crash the whole map; just show loading state.
       setLoading(false);
+      if (!hasLoadedOnce) setHasLoadedOnce(true);
     }
-  };
+  }, [hasLoadedOnce]);
 
   useEffect(() => {
-    refresh();
-    const id = setInterval(refresh, 30_000);
-    return () => clearInterval(id);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+    const runRefresh = () => {
+      void refresh();
+    };
+    const bootstrapId = window.setTimeout(runRefresh, 0);
+    const intervalId = window.setInterval(runRefresh, 30_000);
+    return () => {
+      window.clearTimeout(bootstrapId);
+      window.clearInterval(intervalId);
+    };
+  }, [refresh]);
 
   const stationMarkerData = useMemo(() => {
     const slugs = Object.keys(stationArrivals);
@@ -484,26 +481,79 @@ export default function LiveMap() {
         if (!coords) return null;
         return {
           slug,
-          position: [coords.lat, coords.lon] as LatLngExpression,
+          position: [coords.lat, coords.lon] as LatLon,
           arrivals: stationArrivals[slug] ?? [],
         };
       })
       .filter(Boolean) as Array<{
       slug: string;
-      position: LatLngExpression;
+      position: LatLon;
       arrivals: StationArrival[];
     }>;
     return markers;
   }, [stationArrivals]);
 
+  const visibleLineSlugSet = useMemo(
+    () => new Set(visibleLineSlugs ?? []),
+    [visibleLineSlugs]
+  );
+
+  const filteredLineSegments = useMemo(
+    () =>
+      lineSegments.filter(
+        (line) => visibleLineSlugs === null || visibleLineSlugSet.has(line.lineSlug)
+      ),
+    [lineSegments, visibleLineSlugSet, visibleLineSlugs]
+  );
+
+  const lineFeatureCollection = useMemo(
+    () => ({
+      type: "FeatureCollection" as const,
+      features: filteredLineSegments.flatMap((line) =>
+        line.segments.map((seg, segIdx) => ({
+          type: "Feature" as const,
+          properties: {
+            key: `${line.key}-seg-${segIdx}`,
+            color: line.color,
+          },
+          geometry: {
+            type: "LineString" as const,
+            coordinates: seg.map(([lat, lon]) => [lon, lat]),
+          },
+        }))
+      ),
+    }),
+    [filteredLineSegments]
+  );
+
   const activeTrainStopSlugs = useMemo(() => {
     const s = new Set<string>();
     for (const train of trains) {
+      if (visibleLineSlugs !== null && !visibleLineSlugSet.has(train.lineSlug)) continue;
       const pos = computeTrainPosition(train, nowSeconds);
       if (pos?.nextStopSlug) s.add(pos.nextStopSlug);
     }
     return s;
-  }, [trains, nowSeconds]);
+  }, [trains, nowSeconds, visibleLineSlugSet, visibleLineSlugs]);
+
+  const filteredStationMarkerData = useMemo(
+    () =>
+      stationMarkerData
+        .map((st) => ({
+          ...st,
+          arrivals:
+            visibleLineSlugs !== null
+              ? st.arrivals.filter((a) => visibleLineSlugSet.has(a.lineSlug))
+              : st.arrivals,
+        }))
+        .filter((st) => st.arrivals.length > 0),
+    [stationMarkerData, visibleLineSlugSet, visibleLineSlugs]
+  );
+
+  const selectedStation = useMemo(
+    () => filteredStationMarkerData.find((s) => s.slug === selectedStationSlug) ?? null,
+    [selectedStationSlug, filteredStationMarkerData]
+  );
 
   return (
     <div className="relative w-full h-full aged-paper overflow-hidden">
@@ -530,7 +580,9 @@ export default function LiveMap() {
       {loading && (
         <div className="absolute inset-0 z-[900] flex items-center justify-center">
           <div className="retro-panel px-8 py-6 text-center">
-            <div className="skeleton h-4 w-52 mb-3 mx-auto" />
+            <p className="text-[11px] font-black tracking-[0.08em] uppercase text-ink/70 mb-3">
+              Loading ...
+            </p>
             <div className="skeleton h-3 w-32 mx-auto" />
           </div>
         </div>
@@ -540,134 +592,191 @@ export default function LiveMap() {
         className="relative w-full h-full"
         style={{ filter: "sepia(0.15) contrast(1.1)" }}
       >
-        <MapContainer
-          center={CITY_CENTER}
-          zoom={DEFAULT_ZOOM}
-          scrollWheelZoom={false}
+        <Map
+          initialViewState={{
+            latitude: CITY_CENTER[0],
+            longitude: CITY_CENTER[1],
+            zoom: DEFAULT_ZOOM,
+          }}
+          mapStyle="mapbox://styles/mapbox/streets-v12"
+          mapboxAccessToken={process.env.NEXT_PUBLIC_MAPBOX_TOKEN}
+          scrollZoom
+          touchZoomRotate
           style={{ height: "100%", width: "100%" }}
-          zoomControl={false}
+          onClick={(e: MapLayerMouseEvent) => {
+            if (e.originalEvent.defaultPrevented) return;
+            setSelectedStationSlug(null);
+          }}
         >
-          <TileLayer
-            attribution=""
-            url="https://tiles.stadiamaps.com/tiles/stamen_toner/{z}/{x}/{y}{r}.png"
+          <NavigationControl
+            position="top-left"
+            showCompass={false}
+            visualizePitch={false}
           />
 
-          {/* Draw lines: border polyline + colored polyline */}
-          {lineSegments.map((line) =>
-            line.segments.map((seg, segIdx) => {
-              const key = `${line.key}-seg-${segIdx}`;
-              return (
-                <div key={key}>
-                  <Polyline
-                    positions={seg}
-                    pathOptions={{
-                      color: "var(--ink)",
-                      weight: 8,
-                      opacity: 0.45,
-                      lineJoin: "round",
-                      lineCap: "round",
-                    }}
-                  />
-                  <Polyline
-                    positions={seg}
-                    pathOptions={{
-                      color: line.color,
-                      weight: 5,
-                      opacity: 0.92,
-                      lineJoin: "round",
-                      lineCap: "round",
-                    }}
-                  />
-                </div>
-              );
-            })
-          )}
+          <Source id="lines" type="geojson" data={lineFeatureCollection}>
+            <Layer
+              id="line-border"
+              type="line"
+              paint={{
+                "line-color": "rgba(23, 23, 23, 0.45)",
+                "line-width": 8,
+              }}
+              layout={{ "line-join": "round", "line-cap": "round" }}
+            />
+            <Layer
+              id="line-color"
+              type="line"
+              paint={{
+                "line-color": ["get", "color"],
+                "line-width": 5,
+                "line-opacity": 0.92,
+              }}
+              layout={{ "line-join": "round", "line-cap": "round" }}
+            />
+          </Source>
 
-          {/* Station markers (small dots) */}
-          {stationMarkerData.map((st) => {
-            const arrivals = st.arrivals;
+          {filteredStationMarkerData.map((st) => {
             const isStop = activeTrainStopSlugs.has(st.slug);
-
-            // Keep marker HTML minimal; popup shows details.
-            const label =
-              arrivals.length > 0 ? arrivals[0].shortName : st.slug.slice(0, 1);
             const borderColor = isStop ? "rgba(0,0,0,0.85)" : "rgba(0,0,0,0.25)";
 
-            const icon = L.divIcon({
-              className: "",
-              iconAnchor: [5, 5],
-              html: `
-                <div style="
-                  width:10px;height:10px;
-                  border-radius:999px;
-                  background: rgba(245,240,232,0.95);
-                  border:2px solid ${borderColor};
-                  ${isStop ? "box-shadow: 0 0 0 4px rgba(0,0,0,0.08);" : ""}
-                "></div>
-              `,
-            });
-
             return (
-              <Marker key={st.slug} position={st.position} icon={icon}>
-                <Popup>
-                  <div className="retro-panel p-2">
-                    <div className="text-[10px] font-black tracking-[0.05em] text-ink">
-                      {st.slug.replaceAll("-", " ")}
-                    </div>
-                    <div className="mt-1 space-y-1">
-                      {arrivals.slice(0, 6).map((a) => (
-                        <div
-                          key={a.lineId}
-                          className="flex items-center justify-between gap-2"
-                        >
-                          <div className="flex items-center gap-2 min-w-0">
-                            <span
-                              className="inline-block w-2.5 h-2.5 rounded-full border border-ink/20"
-                              style={{ background: a.color }}
-                              aria-hidden="true"
-                            />
-                            <span className="text-[10px] font-black text-ink/70">
-                              {a.shortName}
-                            </span>
-                          </div>
-                          <div className="text-[10px] font-bold text-ink/70 whitespace-nowrap">
-                            UP:{a.upMinutes ?? "—"} · DOWN:{a.downMinutes ?? "—"}
-                          </div>
-                        </div>
-                      ))}
-                      {arrivals.length === 0 && (
-                        <div className="text-[10px] text-ink/50 font-mono">
-                          No arrivals
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                </Popup>
+              <Marker
+                key={st.slug}
+                latitude={st.position[0]}
+                longitude={st.position[1]}
+                anchor="center"
+                onClick={(e) => {
+                  e.originalEvent.preventDefault();
+                  setSelectedStationSlug(st.slug);
+                }}
+              >
+                <div
+                  style={{
+                    width: 10,
+                    height: 10,
+                    borderRadius: 999,
+                    background: "rgba(245,240,232,0.95)",
+                    border: `2px solid ${borderColor}`,
+                    boxShadow: isStop ? "0 0 0 4px rgba(0,0,0,0.08)" : "none",
+                    cursor: "pointer",
+                  }}
+                />
               </Marker>
             );
           })}
 
-          {/* Train markers */}
+          {selectedStation && (
+            <Popup
+              latitude={selectedStation.position[0]}
+              longitude={selectedStation.position[1]}
+              closeButton
+              closeOnClick={false}
+              onClose={() => setSelectedStationSlug(null)}
+              offset={10}
+            >
+              <div className="retro-panel p-2">
+                <div className="text-[10px] font-black tracking-[0.05em] text-ink">
+                  {selectedStation.slug.replaceAll("-", " ")}
+                </div>
+                <div className="mt-1 space-y-1">
+                  {selectedStation.arrivals.slice(0, 6).map((a) => (
+                    <div
+                      key={a.lineId}
+                      className="flex items-center justify-between gap-2"
+                    >
+                      <div className="flex items-center gap-2 min-w-0">
+                        <span
+                          className="inline-block w-2.5 h-2.5 rounded-full border border-ink/20"
+                          style={{ background: a.color }}
+                          aria-hidden="true"
+                        />
+                        <span className="text-[10px] font-black text-ink/70">
+                          {a.shortName}
+                        </span>
+                      </div>
+                      <div className="text-[10px] font-bold text-ink/70 whitespace-nowrap">
+                        UP:{a.upMinutes ?? "—"} · DOWN:{a.downMinutes ?? "—"}
+                      </div>
+                    </div>
+                  ))}
+                  {selectedStation.arrivals.length === 0 && (
+                    <div className="text-[10px] text-ink/50 font-mono">
+                      No arrivals
+                    </div>
+                  )}
+                </div>
+              </div>
+            </Popup>
+          )}
+
           {trains.map((train) => {
+            if (visibleLineSlugs !== null && !visibleLineSlugSet.has(train.lineSlug)) {
+              return null;
+            }
             const pos = computeTrainPosition(train, nowSeconds);
             if (!pos) return null;
 
-            const icon = trainDivIcon({
-              color: train.color,
-              textColor: train.textColor,
-              label: train.lineShortName.substring(0, 2),
-              atStop: pos.atStop,
-            });
+            const ring = pos.atStop ? "0 0 0 5px rgba(0,0,0,0.25)" : "none";
 
             return (
               <Marker
                 key={train.key}
-                position={[pos.lat, pos.lon]}
-                icon={icon}
-              />
+                latitude={pos.lat}
+                longitude={pos.lon}
+                anchor="center"
+              >
+                <div
+                  className={pos.atStop ? "train-pulse" : undefined}
+                  style={{
+                    position: "relative",
+                    width: 14,
+                    height: 14,
+                    borderRadius: 999,
+                    background: train.color,
+                    border: "2px solid var(--ink)",
+                    boxShadow: ring,
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    fontFamily: "var(--font-barlow-condensed), sans-serif",
+                    fontWeight: 800,
+                    fontSize: 8,
+                    color: train.textColor,
+                    lineHeight: 1,
+                  }}
+                >
+                  {train.lineShortName.substring(0, 2)}
+                  {train.delayed && (
+                    <span
+                      aria-label="Delayed train"
+                      title="Delayed"
+                      style={{
+                        position: "absolute",
+                        right: -7,
+                        top: -7,
+                        width: 10,
+                        height: 10,
+                        borderRadius: 999,
+                        background: "var(--signal-red)",
+                        color: "#fff",
+                        border: "1px solid var(--ink)",
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        fontSize: 7,
+                        fontWeight: 900,
+                        lineHeight: 1,
+                      }}
+                    >
+                      !
+                    </span>
+                  )}
+                </div>
+              </Marker>
             );
           })}
-        </MapContainer>
+        </Map>
       </div>
 
       <div className="absolute bottom-3 left-4 z-[800] retro-panel px-3 py-2 max-w-[260px]">

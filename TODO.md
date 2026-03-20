@@ -1,0 +1,3 @@
+- [ ] Research rendering best practices
+- [ ] Look at other requirements for presentation
+- [ ] Add comments throughout application
