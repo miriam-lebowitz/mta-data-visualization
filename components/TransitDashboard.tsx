@@ -3,18 +3,13 @@
 import { useCallback, useEffect, useState } from "react";
 import AlertsSidebar from "@/components/AlertsSidebar";
 import LiveMapWrapper from "@/components/LiveMapWrapper";
-
-type LineOption = {
-  id: string;
-  short_name: string;
-  slug: string;
-  color: string;
-  text_color: string;
-};
+import type { GeoLocation, LineOption, LiveTrainLocation } from "@/lib/types";
 
 export default function TransitDashboard() {
   const [lineOptions, setLineOptions] = useState<LineOption[]>([]);
   const [visibleLineSlugs, setVisibleLineSlugs] = useState<string[] | null>(null);
+  const [visibleTrains, setVisibleTrains] = useState<LiveTrainLocation[]>([]);
+  const [focusLocation, setFocusLocation] = useState<GeoLocation | null>(null);
 
   const fetchLines = useCallback(async () => {
     try {
@@ -45,9 +40,13 @@ export default function TransitDashboard() {
   }, [fetchLines]);
 
   return (
-    <div className="flex flex-1 overflow-hidden" style={{ minHeight: "calc(100vh - 60px)" }}>
+    <div className="flex flex-1 min-h-0 overflow-hidden">
       <div className="flex-1 relative overflow-hidden">
-        <LiveMapWrapper visibleLineSlugs={visibleLineSlugs} />
+        <LiveMapWrapper
+          visibleLineSlugs={visibleLineSlugs}
+          onVisibleTrainsChange={setVisibleTrains}
+          focusLocation={focusLocation}
+        />
       </div>
       <AlertsSidebar
         lineOptions={lineOptions}
@@ -66,6 +65,8 @@ export default function TransitDashboard() {
         onHideAllLines={() => {
           setVisibleLineSlugs([]);
         }}
+        liveTrains={visibleTrains}
+        onResolvedLocation={setFocusLocation}
       />
     </div>
   );

@@ -98,7 +98,7 @@ function RankRow({
   const composite = computeComposite(ls, weights);
 
   return (
-    <div className="flex items-center gap-3 px-4 py-3 border-b-2 border-ink/10 hover:bg-ink/5 transition-colors">
+    <div className="flex items-center gap-3 px-4 py-2 border-b-2 border-ink/10 hover:bg-ink/5 transition-colors">
       {/* Rank number */}
       <span className="w-7 text-right text-base font-black text-ink/30 shrink-0 tabular-nums">
         {rank}
@@ -274,15 +274,15 @@ export default function LineRankings() {
   }).toUpperCase();
 
   return (
-    <div className="flex flex-col flex-1 max-w-4xl mx-auto w-full px-4 py-6">
+    <div className="flex flex-col flex-1 min-h-0 max-w-4xl mx-auto w-full px-4 py-3">
       {/* Header panel */}
-      <div className="retro-panel mb-6 px-5 py-4">
-        <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
+      <div className="retro-panel mb-3 px-5 py-3 shrink-0">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
           <div>
-            <h1 className="text-2xl font-black tracking-[0.06em] uppercase text-ink">
+            <h1 className="text-xl font-black tracking-[0.06em] uppercase text-ink leading-tight">
               Line Performance
             </h1>
-            <p className="text-[11px] text-ink/50 font-mono mt-0.5 tracking-wider">
+            <p className="text-[11px] text-ink/50 font-mono tracking-wider">
               COMPOSITE RANKING — ALL NYC SUBWAY LINES
             </p>
           </div>
@@ -290,66 +290,60 @@ export default function LineRankings() {
           {/* Clock */}
           <div className="text-right shrink-0">
             <div
-              className="font-mono font-bold text-2xl tabular-nums tracking-widest"
+              className="font-mono font-bold text-xl tabular-nums tracking-widest"
               style={{ color: "var(--ink)", fontFamily: "var(--font-share-tech-mono), monospace" }}
             >
               {timeStr}
             </div>
-            <div className="text-[9px] font-bold tracking-[0.15em] text-ink/50 mt-0.5">
+            <div className="text-[9px] font-bold tracking-[0.15em] text-ink/50">
               {dateStr}
             </div>
           </div>
         </div>
 
         {/* Toggle controls */}
-        <div className="mt-5 pt-4 border-t-4 border-ink">
-          <p className="text-[9px] font-black tracking-[0.18em] uppercase text-ink/50 mb-4">
-            Weight Factors
-          </p>
-          <div className="flex gap-8 flex-wrap">
-            <RetroToggle
-              id="toggle-delays"
-              label="Delays"
-              checked={weights.delays}
-              onChange={(v) => setWeights((w) => ({ ...w, delays: v }))}
-              accentColor="var(--signal-green)"
-            />
-            <RetroToggle
-              id="toggle-incidents"
-              label="Incidents"
-              checked={weights.incidents}
-              onChange={(v) => setWeights((w) => ({ ...w, incidents: v }))}
-              accentColor="var(--signal-yellow)"
-            />
-            <RetroToggle
-              id="toggle-access"
-              label="Accessibility"
-              checked={weights.accessibility}
-              onChange={(v) => setWeights((w) => ({ ...w, accessibility: v }))}
-              accentColor="#0062CF"
-            />
+        <div className="mt-3 pt-3 border-t-4 border-ink flex items-start justify-between gap-6">
+          {/* Left: label + toggles */}
+          <div className="flex items-center gap-6 flex-wrap">
+            <p className="text-[9px] font-black tracking-[0.18em] uppercase text-ink/50 shrink-0">
+              Weight Factors
+            </p>
+            <div className="flex gap-6 flex-wrap">
+              <RetroToggle
+                id="toggle-delays"
+                label="Delays"
+                checked={weights.delays}
+                onChange={(v) => setWeights((w) => ({ ...w, delays: v }))}
+                accentColor="var(--signal-green)"
+              />
+              <RetroToggle
+                id="toggle-incidents"
+                label="Incidents"
+                checked={weights.incidents}
+                onChange={(v) => setWeights((w) => ({ ...w, incidents: v }))}
+                accentColor="var(--signal-yellow)"
+              />
+              <RetroToggle
+                id="toggle-access"
+                label="Accessibility"
+                checked={weights.accessibility}
+                onChange={(v) => setWeights((w) => ({ ...w, accessibility: v }))}
+                accentColor="#0062CF"
+              />
+            </div>
           </div>
 
-          {/* Factor legend */}
-          <div className="mt-4 flex flex-wrap gap-x-6 gap-y-1">
-            <FactorLegendItem
-              color="var(--signal-green)"
-              label="Delay score — based on average wait times across stations"
-            />
-            <FactorLegendItem
-              color="var(--signal-yellow)"
-              label="Incident score — active service alerts and disruptions"
-            />
-            <FactorLegendItem
-              color="#0062CF"
-              label="Accessibility — ADA elevator/escalator availability"
-            />
+          {/* Right: factor key */}
+          <div className="hidden sm:flex flex-col gap-0.5 shrink-0 text-right">
+            <FactorLegendItem color="var(--signal-green)" label="Delay — avg. wait times" />
+            <FactorLegendItem color="var(--signal-yellow)" label="Incident — active alerts" />
+            <FactorLegendItem color="#0062CF" label="Accessibility — ADA" />
           </div>
         </div>
       </div>
 
       {/* Column headers */}
-      <div className="flex items-center gap-3 px-4 pb-2 border-b-4 border-ink">
+      <div className="flex items-center gap-3 px-4 pb-1.5 border-b-4 border-ink shrink-0">
         <span className="w-7" />
         <span className="w-9" />
         <span className="flex-1 text-[9px] font-black tracking-[0.15em] uppercase text-ink/50">
@@ -371,11 +365,11 @@ export default function LineRankings() {
         </span>
       </div>
 
-      {/* Rankings list */}
-      <div className="retro-panel flex-1 overflow-hidden">
+      {/* Rankings list — fills remaining vertical space */}
+      <div className="retro-panel flex-1 min-h-0 overflow-hidden">
         {loading ? (
           <div className="p-6 space-y-3">
-            {[...Array(8)].map((_, i) => (
+            {Array.from({ length: 8 }, (_, i) => (
               <div key={i} className="flex items-center gap-3">
                 <div className="skeleton h-8 w-8 rounded-full" />
                 <div className="flex-1 skeleton h-5 rounded" />
@@ -390,7 +384,7 @@ export default function LineRankings() {
             </p>
           </div>
         ) : (
-          <div className="overflow-y-auto max-h-[60vh]">
+          <div className="h-full overflow-y-auto scrollbar-thin">
             {sortedScores.map((ls, i) => (
               <RankRow key={ls.line.id} rank={i + 1} ls={ls} weights={weights} />
             ))}
@@ -399,7 +393,7 @@ export default function LineRankings() {
       </div>
 
       {/* Footer */}
-      <div className="mt-4 flex items-center justify-between">
+      <div className="mt-2 flex items-center justify-between shrink-0">
         <p className="text-[9px] font-mono text-ink/40 leading-relaxed">
           DATA: NYC SUBWAY STATUS API + MTA SERVICE ALERTS
           <br />
@@ -431,12 +425,12 @@ export default function LineRankings() {
 
 function FactorLegendItem({ color, label }: { color: string; label: string }) {
   return (
-    <p className="flex items-start gap-1.5 text-[9px] text-ink/50 leading-tight max-w-[220px]">
+    <p className="flex items-center justify-end gap-1.5 text-[11px] text-ink/60 leading-tight">
+      {label}
       <span
-        className="inline-block w-2 h-2 rounded-full mt-0.5 shrink-0"
+        className="inline-block w-2 h-2 rounded-full shrink-0"
         style={{ background: color }}
       />
-      {label}
     </p>
   );
 }

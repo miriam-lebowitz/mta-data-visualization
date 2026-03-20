@@ -166,7 +166,7 @@ body {
   }
 }
 
-.train-marker {
+.train-pulse {
   animation: train-pulse 2.5s ease-in-out infinite;
 }
 
@@ -204,42 +204,3 @@ body {
   border-radius: 0;
 }
 
-/* ── Leaflet retro styling ─────────────────────────────────────────────── */
-.leaflet-container {
-  background: var(--parchment);
-  font-family: var(--font-barlow-condensed), "Helvetica Neue", Helvetica, Arial,
-    sans-serif;
-}
-
-.leaflet-control-attribution {
-  display: none !important;
-}
-
-.leaflet-popup-content-wrapper {
-  background: var(--panel-bg);
-  border: 4px solid var(--ink);
-  border-radius: 0;
-  box-shadow: none;
-}
-
-.leaflet-popup-tip {
-  background: var(--panel-bg);
-  border: 4px solid var(--ink);
-  border-top: 0;
-  border-left: 0;
-  transform: rotate(45deg);
-}
-
-.leaflet-popup-content {
-  margin: 8px 10px;
-}
-
-.leaflet-popup-close-button {
-  background: transparent;
-  width: 28px;
-  height: 28px;
-  border-radius: 0;
-  font-size: 20px;
-  color: var(--ink);
-  opacity: 0.7;
-}

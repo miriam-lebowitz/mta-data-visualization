@@ -30,9 +30,9 @@ export default function RootLayout({
       lang="en"
       className={`${barlowCondensed.variable} ${shareTechMono.variable} h-full`}
     >
-      <body className="min-h-full flex flex-col bg-background text-foreground">
+      <body className="h-full flex flex-col bg-background text-foreground overflow-hidden">
         <Nav />
-        <main className="flex flex-col flex-1">{children}</main>
+        <main className="flex flex-col flex-1 min-h-0">{children}</main>
       </body>
     </html>
   );

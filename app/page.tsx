@@ -1,5 +1,5 @@
-import TransitDashboard from "@/components/TransitDashboard";
+import TransitDashboardLoader from "@/components/TransitDashboardLoader";
 
 export default function Home() {
-  return <TransitDashboard />;
+  return <TransitDashboardLoader />;
 }
