@@ -1,0 +1,245 @@
+@import "tailwindcss";
+
+:root {
+  --background: #f5f0e8;
+  --foreground: #1a1a1a;
+  --parchment: #f5f0e8;
+  --concrete: #c8c4bc;
+  --ink: #1a1a1a;
+  --aged-yellow: #e8d5a0;
+  --signal-green: #2d6a4f;
+  --signal-yellow: #d4a017;
+  --signal-red: #9b2226;
+  --panel-bg: #ebe6dc;
+  --panel-border: #1a1a1a;
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --font-sans: var(--font-barlow-condensed);
+  --font-mono: var(--font-share-tech-mono);
+  --color-parchment: var(--parchment);
+  --color-concrete: var(--concrete);
+  --color-ink: var(--ink);
+  --color-signal-green: var(--signal-green);
+  --color-signal-yellow: var(--signal-yellow);
+  --color-signal-red: var(--signal-red);
+}
+
+body {
+  background: var(--background);
+  color: var(--foreground);
+  font-family: var(--font-barlow-condensed), "Helvetica Neue", Helvetica, Arial,
+    sans-serif;
+}
+
+/* ── Aged paper / noise texture ────────────────────────────────────────────── */
+.aged-paper {
+  background-color: var(--parchment);
+  background-image:
+    url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.06'/%3E%3C/svg%3E");
+}
+
+/* ── Utility borders & panels ─────────────────────────────────────────────── */
+.tile-border {
+  border: 4px solid var(--ink);
+  box-shadow:
+    inset 0 0 0 1px rgba(255, 255, 255, 0.15),
+    2px 2px 0 rgba(0, 0, 0, 0.12);
+}
+
+.thick-rule {
+  border-top: 4px solid var(--ink);
+}
+
+.retro-panel {
+  background: var(--panel-bg);
+  border: 4px solid var(--panel-border);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.35),
+    4px 4px 0 rgba(0, 0, 0, 0.15);
+}
+
+/* ── Skeleton loading ─────────────────────────────────────────────────────── */
+@keyframes skeleton-pulse {
+  0%, 100% { opacity: 0.45; }
+  50% { opacity: 0.85; }
+}
+
+.skeleton {
+  background: linear-gradient(
+    90deg,
+    var(--concrete) 0%,
+    #ddd9d0 50%,
+    var(--concrete) 100%
+  );
+  background-size: 200% 100%;
+  animation: skeleton-pulse 1.2s ease-in-out infinite;
+}
+
+/* ── Signal status colors ─────────────────────────────────────────────────── */
+.status-bad {
+  color: var(--signal-red);
+  font-weight: 700;
+}
+
+.status-ok {
+  color: var(--signal-green);
+  font-weight: 700;
+}
+
+.status-warn {
+  color: var(--signal-yellow);
+  font-weight: 700;
+}
+
+/* ── Solari / split-flap digit flip ──────────────────────────────────────── */
+@keyframes flap-flip {
+  0% {
+    transform: rotateX(-90deg);
+    opacity: 0.6;
+  }
+  50% {
+    opacity: 1;
+  }
+  100% {
+    transform: rotateX(0deg);
+    opacity: 1;
+  }
+}
+
+@keyframes flap {
+  0% { clip-path: inset(0 0 50% 0); }
+  100% { clip-path: inset(0); }
+}
+
+.solari-digit {
+  perspective: 400px;
+  display: inline-block;
+}
+
+.solari-digit-inner {
+  transform-style: preserve-3d;
+  animation: flap-flip 0.35s ease-out forwards;
+}
+
+/* ── Mechanical toggle track ──────────────────────────────────────────────── */
+.retro-toggle-track {
+  position: relative;
+  width: 3.25rem;
+  height: 1.75rem;
+  border: 3px solid var(--ink);
+  background: linear-gradient(180deg, #3a3a3a 0%, #2a2a2a 50%, #1a1a1a 100%);
+  box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.5);
+  border-radius: 2px;
+  cursor: pointer;
+  transition: box-shadow 0.15s ease;
+}
+
+.retro-toggle-track:active {
+  box-shadow: inset 0 3px 6px rgba(0, 0, 0, 0.65);
+}
+
+.retro-toggle-knob {
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: calc(50% - 4px);
+  height: calc(100% - 4px);
+  background: linear-gradient(180deg, #e8e4dc 0%, #c4c0b8 100%);
+  border: 2px solid var(--ink);
+  border-radius: 1px;
+  box-shadow: 2px 2px 0 rgba(0, 0, 0, 0.25);
+  transition: transform 0.2s ease;
+}
+
+/* ── Train marker pulse ───────────────────────────────────────────────────── */
+@keyframes train-pulse {
+  0%, 100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.85;
+    transform: scale(1.08);
+  }
+}
+
+.train-marker {
+  animation: train-pulse 2.5s ease-in-out infinite;
+}
+
+/* ── Station sign nav link ────────────────────────────────────────────────── */
+.nav-station-link {
+  letter-spacing: 0.08em;
+  border-bottom: 4px solid transparent;
+  padding-bottom: 0.15rem;
+  transition:
+    border-color 0.15s ease,
+    color 0.15s ease;
+}
+
+.nav-station-link[data-active="true"] {
+  color: var(--ink);
+  border-bottom-color: var(--ink);
+}
+
+/* ── Thin scrollbar ───────────────────────────────────────────────────────── */
+.scrollbar-thin {
+  scrollbar-width: thin;
+  scrollbar-color: var(--concrete) transparent;
+}
+
+.scrollbar-thin::-webkit-scrollbar {
+  width: 4px;
+}
+
+.scrollbar-thin::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.scrollbar-thin::-webkit-scrollbar-thumb {
+  background: var(--concrete);
+  border-radius: 0;
+}
+
+/* ── Leaflet retro styling ─────────────────────────────────────────────── */
+.leaflet-container {
+  background: var(--parchment);
+  font-family: var(--font-barlow-condensed), "Helvetica Neue", Helvetica, Arial,
+    sans-serif;
+}
+
+.leaflet-control-attribution {
+  display: none !important;
+}
+
+.leaflet-popup-content-wrapper {
+  background: var(--panel-bg);
+  border: 4px solid var(--ink);
+  border-radius: 0;
+  box-shadow: none;
+}
+
+.leaflet-popup-tip {
+  background: var(--panel-bg);
+  border: 4px solid var(--ink);
+  border-top: 0;
+  border-left: 0;
+  transform: rotate(45deg);
+}
+
+.leaflet-popup-content {
+  margin: 8px 10px;
+}
+
+.leaflet-popup-close-button {
+  background: transparent;
+  width: 28px;
+  height: 28px;
+  border-radius: 0;
+  font-size: 20px;
+  color: var(--ink);
+  opacity: 0.7;
+}
