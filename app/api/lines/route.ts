@@ -1,4 +1,5 @@
-export const dynamic = "force-dynamic";
+// Line metadata changes rarely — cache the response for 5 minutes.
+export const revalidate = 300;
 
 export async function GET() {
   try {
@@ -15,7 +16,9 @@ export async function GET() {
     }
 
     const data = await res.json();
-    return Response.json(data);
+    return Response.json(data, {
+      headers: { "Cache-Control": "public, s-maxage=300, stale-while-revalidate=60" },
+    });
   } catch {
     return Response.json({ ok: false, error: "Failed to fetch lines" }, { status: 500 });
   }

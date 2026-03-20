@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useState } from "react";
 import AlertsSidebar from "@/components/AlertsSidebar";
 import LiveMapWrapper from "@/components/LiveMapWrapper";
 import type { GeoLocation, LineOption, LiveTrainLocation } from "@/lib/types";
@@ -11,33 +11,15 @@ export default function TransitDashboard() {
   const [visibleTrains, setVisibleTrains] = useState<LiveTrainLocation[]>([]);
   const [focusLocation, setFocusLocation] = useState<GeoLocation | null>(null);
 
-  const fetchLines = useCallback(async () => {
-    try {
-      const res = await fetch("/api/lines");
-      const json = await res.json();
-      if (!json?.ok || !json?.data?.lines) return;
-
-      const lines = json.data.lines as LineOption[];
-      setLineOptions(lines);
-      setVisibleLineSlugs((prev) => {
-        if (prev === null) return null;
-        const available = new Set(lines.map((l) => l.slug));
-        const pruned = prev.filter((slug) => available.has(slug));
-        return pruned;
-      });
-    } catch {
-      // Keep current filter state if lines endpoint fails.
-    }
+  // Receive line metadata emitted by LiveMap after each refresh — no separate fetch needed.
+  const handleLinesChange = useCallback((lines: LineOption[]) => {
+    setLineOptions(lines);
+    setVisibleLineSlugs((prev) => {
+      if (prev === null) return null;
+      const available = new Set(lines.map((l) => l.slug));
+      return prev.filter((slug) => available.has(slug));
+    });
   }, []);
-
-  useEffect(() => {
-    const bootstrapId = window.setTimeout(() => void fetchLines(), 0);
-    const intervalId = window.setInterval(() => void fetchLines(), 300_000);
-    return () => {
-      window.clearTimeout(bootstrapId);
-      window.clearInterval(intervalId);
-    };
-  }, [fetchLines]);
 
   return (
     <div className="flex flex-1 min-h-0 overflow-hidden">
@@ -45,6 +27,7 @@ export default function TransitDashboard() {
         <LiveMapWrapper
           visibleLineSlugs={visibleLineSlugs}
           onVisibleTrainsChange={setVisibleTrains}
+          onLinesChange={handleLinesChange}
           focusLocation={focusLocation}
         />
       </div>
@@ -59,12 +42,8 @@ export default function TransitDashboard() {
               : [...current, slug];
           });
         }}
-        onShowAllLines={() => {
-          setVisibleLineSlugs(null);
-        }}
-        onHideAllLines={() => {
-          setVisibleLineSlugs([]);
-        }}
+        onShowAllLines={() => setVisibleLineSlugs(null)}
+        onHideAllLines={() => setVisibleLineSlugs([])}
         liveTrains={visibleTrains}
         onResolvedLocation={setFocusLocation}
       />

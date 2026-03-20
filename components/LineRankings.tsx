@@ -168,8 +168,6 @@ function SubScore({ label, value }: { label: string; value: number }) {
 // ─── Main Component ──────────────────────────────────────────────────────────
 
 export default function LineRankings() {
-  const [lines, setLines] = useState<RawLine[]>([]);
-  const [alertLines, setAlertLines] = useState<Set<string>>(new Set());
   const [scores, setScores] = useState<LineScore[]>([]);
   const [weights, setWeights] = useState<Weights>({
     delays: true,
@@ -178,12 +176,12 @@ export default function LineRankings() {
   });
   const [loading, setLoading] = useState(true);
   const [now, setNow] = useState(new Date());
-  const tickRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const tickRef = useRef<number | null>(null);
 
   // Clock tick
   useEffect(() => {
-    tickRef.current = setInterval(() => setNow(new Date()), 1000);
-    return () => { if (tickRef.current) clearInterval(tickRef.current); };
+    tickRef.current = window.setInterval(() => setNow(new Date()), 1000);
+    return () => { if (tickRef.current) window.clearInterval(tickRef.current); };
   }, []);
 
   const fetchData = useCallback(async () => {
@@ -208,8 +206,6 @@ export default function LineRankings() {
           aLines.add(alert.line.toLowerCase());
         }
       }
-      setAlertLines(aLines);
-
       // Compute scores
       const computed: LineScore[] = fetchedLines.map((line) => {
         const delayScore = computeDelayScore(line.station_count);
@@ -227,7 +223,6 @@ export default function LineRankings() {
         return ls;
       });
 
-      setLines(fetchedLines);
       setScores(computed);
       setLoading(false);
     } catch {
@@ -245,14 +240,14 @@ export default function LineRankings() {
 
     void run();
 
-    const id = setInterval(() => {
+    const id = window.setInterval(() => {
       if (!mounted) return;
       void fetchData();
     }, 30_000);
 
     return () => {
       mounted = false;
-      clearInterval(id);
+      window.clearInterval(id);
     };
   }, [fetchData]);
 

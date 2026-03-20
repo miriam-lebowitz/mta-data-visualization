@@ -1,4 +1,5 @@
-export const dynamic = "force-dynamic";
+// Trip schedules update frequently — cache for 30 seconds.
+export const revalidate = 30;
 
 export async function GET(
   _req: Request,
@@ -32,7 +33,9 @@ export async function GET(
     }
 
     const data = await res.json();
-    return Response.json(data);
+    return Response.json(data, {
+      headers: { "Cache-Control": "public, s-maxage=30, stale-while-revalidate=10" },
+    });
   } catch {
     return Response.json(
       { ok: false, error: `Failed to fetch trip ${tripId}` },

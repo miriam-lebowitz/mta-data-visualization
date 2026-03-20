@@ -1,10 +1,17 @@
 import { defineConfig, globalIgnores } from "eslint/config";
 import nextVitals from "eslint-config-next/core-web-vitals";
 import nextTs from "eslint-config-next/typescript";
+import jsxA11y from "eslint-plugin-jsx-a11y";
+
+// eslint-config-next already registers the jsx-a11y plugin, so we apply only
+// the recommended rules without re-declaring the plugin to avoid conflicts.
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+const { plugins: _plugins, ...a11yRulesOnly } = jsxA11y.flatConfigs.recommended;
 
 const eslintConfig = defineConfig([
   ...nextVitals,
   ...nextTs,
+  a11yRulesOnly,
   // Override default ignores of eslint-config-next.
   globalIgnores([
     // Default ignores of eslint-config-next:

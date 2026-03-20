@@ -16,8 +16,42 @@ const shareTechMono = Share_Tech_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "NYC Transit — System Status",
-  description: "Real-time NYC subway system status and line performance rankings.",
+  title: {
+    default: "NYC Transit — System Status",
+    template: "%s | NYC Transit",
+  },
+  description:
+    "Real-time NYC subway system status, live train map, service alerts, and line performance rankings.",
+  keywords: [
+    "NYC subway",
+    "MTA",
+    "MTA live map",
+    "subway tracker",
+    "real-time subway",
+    "NYC transit status",
+    "subway delays",
+    "MTA status",
+    "New York City subway",
+    "train tracker",
+    "subway alerts",
+    "MTA subway map",
+  ],
+  robots: { index: true, follow: true },
+  openGraph: {
+    type: "website",
+    siteName: "NYC Transit",
+    title: "NYC Transit — System Status",
+    description:
+      "Real-time NYC subway system status, live train map, service alerts, and line performance rankings.",
+    locale: "en_US",
+  },
+  twitter: {
+    card: "summary",
+    title: "NYC Transit — System Status",
+    description:
+      "Real-time NYC subway system status, live train map, service alerts, and line performance rankings.",
+  },
+  category: "transportation",
 };
 
 export default function RootLayout({

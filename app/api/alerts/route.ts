@@ -1,12 +1,7 @@
-export const dynamic = "force-dynamic";
+// Service alerts change at most every minute — cache for 60 seconds.
+export const revalidate = 60;
 
-// MTA publishes a human-readable service status XML feed at this endpoint.
-// We parse it and return clean JSON to the client.
-const MTA_STATUS_URL =
-  "https://api-endpoint.mta.info/Dataservice/mtagtfsfeeds/camsys%2Fsubway-alerts.json";
-
-// Fallback: unofficial JSON alerts from nyc-subway-status.com isn't available,
-// so we scrape the MTA's public XML service status feed.
+// MTA public XML service status feed (no API key required).
 const MTA_XML_URL = "https://servicestatus.mta.info/subwayservicestatus.aspx";
 
 export interface Alert {
@@ -23,11 +18,6 @@ function severityFromText(text: string): Alert["severity"] {
   if (lower.includes("suspend") || lower.includes("no train") || lower.includes("service change")) return "major";
   if (lower.includes("delay") || lower.includes("slow") || lower.includes("extra travel")) return "minor";
   return "normal";
-}
-
-function extractLineFromText(text: string): string {
-  const match = text.match(/\b([1-7]|[ABCDEFGJLMNQRSWZ]|SIR)\b/);
-  return match ? match[1] : "—";
 }
 
 async function fetchAlerts(): Promise<Alert[]> {
@@ -65,7 +55,7 @@ async function fetchAlerts(): Promise<Alert[]> {
     const updatedAt = `${dateMatch?.[1].trim() ?? ""} ${timeMatch?.[1].trim() ?? ""}`.trim();
 
     alerts.push({
-      id: `${line}-${Date.now()}`,
+      id: `${line}-${status}`,
       line,
       header: status,
       description,
@@ -80,7 +70,9 @@ async function fetchAlerts(): Promise<Alert[]> {
 export async function GET() {
   try {
     const alerts = await fetchAlerts();
-    return Response.json({ ok: true, data: { alerts, count: alerts.length } });
+    return Response.json({ ok: true, data: { alerts, count: alerts.length } }, {
+      headers: { "Cache-Control": "public, s-maxage=60, stale-while-revalidate=15" },
+    });
   } catch (err) {
     console.error("Alerts fetch error:", err);
     // Return empty list rather than erroring; UI handles gracefully

@@ -8,11 +8,11 @@ import Map, {
   NavigationControl,
   Popup,
   Source,
-  type MapLayerMouseEvent,
   type MapRef,
 } from "react-map-gl/mapbox";
+import type { MapMouseEvent } from "mapbox-gl";
 import { STATION_COORDS } from "./StationCoords";
-import type { GeoLocation, LiveTrainLocation } from "@/lib/types";
+import type { GeoLocation, LineOption, LiveTrainLocation } from "@/lib/types";
 
 // ─── Local types ─────────────────────────────────────────────────────────────
 
@@ -214,10 +214,12 @@ async function mapWithConcurrency<T, R>(
 export default function LiveMap({
   visibleLineSlugs = null,
   onVisibleTrainsChange,
+  onLinesChange,
   focusLocation = null,
 }: {
   visibleLineSlugs?: string[] | null;
   onVisibleTrainsChange?: (trains: LiveTrainLocation[]) => void;
+  onLinesChange?: (lines: LineOption[]) => void;
   focusLocation?: GeoLocation | null;
 }) {
   const [stationArrivals, setStationArrivals] = useState<Record<string, StationArrival[]>>({});
@@ -248,6 +250,9 @@ export default function LiveMap({
     try {
       const linesJson = await fetchJson<{ ok: boolean; data: { lines: LineSummary[] } }>("/api/lines");
       if (!linesJson.ok) return;
+
+      // Propagate line metadata so parent components don't need a separate fetch.
+      onLinesChange?.(linesJson.data.lines as LineOption[]);
 
       const details = await mapWithConcurrency(linesJson.data.lines, FETCH_CONCURRENCY, async (line) => ({
         line,
@@ -360,7 +365,7 @@ export default function LiveMap({
       setLoading(false);
       if (!hasLoadedOnce) setHasLoadedOnce(true);
     }
-  }, [hasLoadedOnce]);
+  }, [hasLoadedOnce, onLinesChange]);
 
   useEffect(() => {
     const bootstrapId = window.setTimeout(() => void refresh(), 0);
@@ -511,7 +516,7 @@ export default function LiveMap({
           scrollZoom
           touchZoomRotate
           style={{ height: "100%", width: "100%" }}
-          onClick={(e: MapLayerMouseEvent) => {
+          onClick={(e: MapMouseEvent) => {
             if (e.originalEvent.defaultPrevented) return;
             setSelectedStationSlug(null);
           }}
