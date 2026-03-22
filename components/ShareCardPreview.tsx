@@ -3,23 +3,8 @@
 // DOM preview of the share card — mirrors `/api/share-card` layout.
 // Authored at CARD_W × CARD_W px, then scaled with CSS zoom for the modal.
 
+import type { LinePerformanceScore } from "@/lib/types";
 import * as ui from "./styles/ShareCardPreview.styles";
-
-interface RawLine {
-  id: string;
-  short_name: string;
-  long_name: string;
-  color: string;
-  text_color: string;
-}
-
-export interface LineScore {
-  line: RawLine;
-  delayScore: number;
-  incidentScore: number;
-  accessScore: number;
-  composite: number;
-}
 
 const CARD_W = 360;
 const PREVIEW_W = 300;
@@ -32,7 +17,7 @@ export default function ShareCardPreview({
   customTagline,
   snapshotTime,
 }: {
-  ls: LineScore;
+  ls: LinePerformanceScore;
   rank: number;
   total: number;
   customTagline: string;

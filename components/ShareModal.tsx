@@ -1,30 +1,13 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
+import type { LinePerformanceScore } from "@/lib/types";
 import LineBadge from "./LineBadge";
 import ShareCardPreview from "./ShareCardPreview";
 import * as ui from "./styles/ShareModal.styles";
 
-// ─── Types ────────────────────────────────────────────────────────────────────
-
-interface RawLine {
-  id: string;
-  short_name: string;
-  long_name: string;
-  color: string;
-  text_color: string;
-}
-
-interface LineScore {
-  line: RawLine;
-  delayScore: number;
-  incidentScore: number;
-  accessScore: number;
-  composite: number;
-}
-
 interface ShareModalProps {
-  scores: LineScore[];   // already sorted best → worst
+  scores: LinePerformanceScore[];
   onClose: () => void;
 }
 
@@ -47,7 +30,13 @@ function formatSnapshotTime(d: Date): string {
   }) + " ET";
 }
 
-function buildCardUrl(ls: LineScore, rank: number, total: number, customTagline?: string, snapshotTime?: string): string {
+function buildCardUrl(
+  ls: LinePerformanceScore,
+  rank: number,
+  total: number,
+  customTagline?: string,
+  snapshotTime?: string,
+): string {
   const p = new URLSearchParams({
     line: ls.line.short_name,
     rank: String(rank),

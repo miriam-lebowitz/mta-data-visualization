@@ -1,78 +1,20 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import {
+  accessScoreForLine,
+  computeComposite,
+  computeDelayScore,
+  computeIncidentScore,
+  type RankingWeights,
+} from "@/lib/rankingScores";
+import type { LinePerformanceScore, LineSummary } from "@/lib/types";
 import LineBadge from "./LineBadge";
 import RetroToggle from "./RetroToggle";
 import SolariFlip from "./SolariFlip";
 import ScoreBar from "./ScoreBar";
 import ShareModal from "./ShareModal";
 import * as ui from "./styles/LineRankings.styles";
-
-// ─── Types ──────────────────────────────────────────────────────────────────
-
-interface RawLine {
-  id: string;
-  short_name: string;
-  long_name: string;
-  slug: string;
-  color: string;
-  text_color: string;
-  station_count: number;
-}
-
-interface LineScore {
-  line: RawLine;
-  delayScore: number;       // 0–100, higher = better (fewer delays)
-  incidentScore: number;    // 0–100, higher = better (fewer incidents)
-  accessScore: number;      // 0–100, static proxy
-  composite: number;        // weighted composite
-}
-
-interface Weights {
-  delays: boolean;
-  incidents: boolean;
-  accessibility: boolean;
-}
-
-// ─── Static accessibility scores (proxy for ADA elevator availability) ───
-// Based on rough MTA data — lines with more accessible stations score higher.
-const ACCESS_SCORES: Record<string, number> = {
-  "1": 72, "2": 68, "3": 65, "4": 74, "5": 71, "6": 73,
-  "6X": 70, "7": 82, "7X": 82,
-  A: 78, B: 62, C: 60, D: 65, E: 80, F: 66,
-  FS: 40, FX: 58, G: 55, GS: 90, H: 45,
-  J: 58, L: 88, M: 62, N: 70, Q: 75, R: 65,
-  SI: 95, W: 69, Z: 55,
-};
-
-// ─── Score helpers ───────────────────────────────────────────────────────────
-
-function computeDelayScore(stationCount: number): number {
-  // Heuristic: longer lines tend to have more variability.
-  // We'll use station count as a proxy (more stations → more exposure to delay).
-  // Randomize slightly to simulate real variance.
-  const base = Math.max(30, 100 - stationCount * 0.9);
-  const jitter = (Math.random() - 0.5) * 14;
-  return Math.round(Math.min(98, Math.max(20, base + jitter)));
-}
-
-function computeIncidentScore(id: string, alertLines: Set<string>): number {
-  // Lines with active alerts get penalized
-  const hasAlert = alertLines.has(id) || alertLines.has(id.toLowerCase());
-  const base = hasAlert ? 45 + Math.random() * 20 : 72 + Math.random() * 22;
-  return Math.round(Math.min(98, Math.max(10, base)));
-}
-
-function computeComposite(ls: LineScore, weights: Weights): number {
-  const active = [weights.delays, weights.incidents, weights.accessibility].filter(Boolean).length;
-  if (active === 0) return 0;
-
-  let sum = 0;
-  if (weights.delays) sum += ls.delayScore;
-  if (weights.incidents) sum += ls.incidentScore;
-  if (weights.accessibility) sum += ls.accessScore;
-  return Math.round(sum / active);
-}
 
 // ─── Row component ───────────────────────────────────────────────────────────
 
@@ -82,8 +24,8 @@ function RankRow({
   weights,
 }: {
   rank: number;
-  ls: LineScore;
-  weights: Weights;
+  ls: LinePerformanceScore;
+  weights: RankingWeights;
 }) {
   const composite = computeComposite(ls, weights);
 
@@ -152,13 +94,14 @@ function SubScore({ label, value }: { label: string; value: number }) {
 // ─── Main Component ──────────────────────────────────────────────────────────
 
 export default function LineRankings() {
-  const [scores, setScores] = useState<LineScore[]>([]);
-  const [weights, setWeights] = useState<Weights>({
+  const [scores, setScores] = useState<LinePerformanceScore[]>([]);
+  const [weights, setWeights] = useState<RankingWeights>({
     delays: true,
     incidents: true,
     accessibility: true,
   });
   const [loading, setLoading] = useState(true);
+  const [fetchError, setFetchError] = useState<string | null>(null);
   const [shareModalOpen, setShareModalOpen] = useState(false);
   /** `null` until after mount — avoids SSR/client clock mismatch (hydration errors). */
   const [now, setNow] = useState<Date | null>(null);
@@ -184,11 +127,12 @@ export default function LineRankings() {
       const linesJson = await linesRes.json();
       const alertsJson = await alertsRes.json();
 
-      if (!linesJson.ok || !linesJson.data?.lines) return;
+      if (!linesJson.ok || !linesJson.data?.lines) {
+        throw new Error("Lines data unavailable");
+      }
 
-      const fetchedLines: RawLine[] = linesJson.data.lines;
+      const fetchedLines = linesJson.data.lines as LineSummary[];
 
-      // Build alert set
       const aLines = new Set<string>();
       if (alertsJson.ok && alertsJson.data?.alerts) {
         for (const alert of alertsJson.data.alerts) {
@@ -196,13 +140,13 @@ export default function LineRankings() {
           aLines.add(alert.line.toLowerCase());
         }
       }
-      // Compute scores
-      const computed: LineScore[] = fetchedLines.map((line) => {
-        const delayScore = computeDelayScore(line.station_count);
-        const incidentScore = computeIncidentScore(line.id, aLines);
-        const accessScore = ACCESS_SCORES[line.id] ?? ACCESS_SCORES[line.short_name] ?? 60;
 
-        const ls: LineScore = {
+      const computed: LinePerformanceScore[] = fetchedLines.map((line) => {
+        const delayScore = computeDelayScore(line.id, line.station_count);
+        const incidentScore = computeIncidentScore(line.id, aLines);
+        const accessScore = accessScoreForLine(line);
+
+        const ls: LinePerformanceScore = {
           line,
           delayScore,
           incidentScore,
@@ -214,8 +158,10 @@ export default function LineRankings() {
       });
 
       setScores(computed);
+      setFetchError(null);
       setLoading(false);
     } catch {
+      setFetchError("Could not load rankings. Check your connection and try again.");
       setLoading(false);
     }
   }, [weights]);
@@ -266,6 +212,15 @@ export default function LineRankings() {
 
   return (
     <div className={ui.page}>
+      {fetchError && (
+        <div className={ui.fetchErrorBar} role="alert">
+          <span className={ui.fetchErrorText}>{fetchError}</span>
+          <button type="button" className={ui.fetchErrorRetry} onClick={() => void fetchData()}>
+            Retry
+          </button>
+        </div>
+      )}
+
       {/* Header panel */}
       <div className={ui.headerPanel}>
         <div className={ui.headerTopRow}>

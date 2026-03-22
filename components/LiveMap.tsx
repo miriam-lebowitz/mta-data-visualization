@@ -11,210 +11,34 @@ import Map, {
   type MapRef,
 } from "react-map-gl/mapbox";
 import type { MapMouseEvent } from "mapbox-gl";
-import { STATION_COORDS } from "./StationCoords";
+import {
+  computeTrainPosition,
+  fetchJson,
+  getCoords,
+  mapWithConcurrency,
+  splitLineSegments,
+  type LineDetail,
+  type LatLon,
+  type StationArrival,
+  type TrainPoint,
+  type TrainSchedule,
+  type TripResponse,
+} from "@/lib/liveMap";
+import { useThrottledLiveTrainNotify } from "@/lib/useThrottledLiveTrainNotify";
+import type { GeoLocation, LineOption, LineSummary, LiveTrainLocation } from "@/lib/types";
 import * as ui from "./styles/LiveMap.styles";
-import type { GeoLocation, LineOption, LiveTrainLocation } from "@/lib/types";
-
-// ─── Local types ─────────────────────────────────────────────────────────────
-
-type LineSummary = {
-  id: string;
-  short_name: string;
-  long_name: string;
-  slug: string;
-  color: string;
-  text_color: string;
-};
-
-type LineDetailStation = {
-  id: string;
-  name: string;
-  slug: string;
-  next_uptown?: {
-    minutes_away: number;
-    trip_id: string;
-    arrival_time_iso?: string;
-    arrival_time?: number;
-  } | null;
-  next_downtown?: {
-    minutes_away: number;
-    trip_id: string;
-    arrival_time_iso?: string;
-    arrival_time?: number;
-  } | null;
-};
-
-type LineDetail = {
-  route: {
-    id: string;
-    short_name: string;
-    color: string;
-    text_color: string;
-    slug: string;
-  };
-  station_count: number;
-  stations: LineDetailStation[];
-};
-
-type TripResponse = {
-  trip_id: string;
-  route: {
-    slug: string;
-    short_name: string;
-    color: string;
-    text_color?: string;
-  };
-  direction: "uptown" | "downtown";
-  stops: Array<{
-    station: { name: string; slug: string };
-    arrival_time: number | null;
-    departure_time: number | null;
-    minutes_away: number | null;
-    status: string;
-  }>;
-};
-
-type StationArrival = {
-  lineId: string;
-  lineSlug: string;
-  shortName: string;
-  color: string;
-  textColor: string;
-  upMinutes?: number;
-  downMinutes?: number;
-};
-
-type TrainPoint = {
-  slug: string;
-  lat: number;
-  lon: number;
-  t: number; // unix seconds
-  minutesAway: number | null;
-};
-
-type TrainSchedule = {
-  key: string;
-  lineSlug: string;
-  lineShortName: string;
-  color: string;
-  textColor: string;
-  direction: "uptown" | "downtown";
-  delayed: boolean;
-  points: TrainPoint[];
-};
-
-type LatLon = [number, number];
-
-// ─── Constants ───────────────────────────────────────────────────────────────
 
 const CITY_CENTER: LatLon = [40.75, -73.99];
 const DEFAULT_ZOOM = 11.2;
-const MAX_MISSING_RUN = 6;
-const AT_STOP_WINDOW_SEC = 6;
 const MAX_TRAINS = 28;
 const REFRESH_INTERVAL_MS = 30_000;
 const FETCH_CONCURRENCY = 4;
 
-// ─── Pure helpers ─────────────────────────────────────────────────────────────
-
-function getCoords(slug: string) {
-  const coords = (STATION_COORDS as unknown as Record<string, { lat: number; lon: number }>)[slug];
-  return coords ?? null;
+function isAbortError(e: unknown): boolean {
+  return (
+    e instanceof DOMException && e.name === "AbortError"
+  ) || (e instanceof Error && e.name === "AbortError");
 }
-
-// This function splits the line segments into smaller 
-// segments to make the map more readable.
-function splitLineSegments(points: Array<{ slug: string }>) {
-  const segments: Array<Array<[number, number]>> = [];
-  let current: Array<[number, number]> = [];
-  let missingRun = 0;
-
-  for (const p of points) {
-    const coords = getCoords(p.slug);
-    if (!coords) {
-      // Bridge short gaps; split on very long runs of missing coordinates.
-      missingRun += 1;
-      continue;
-    }
-    if (missingRun >= MAX_MISSING_RUN && current.length >= 2) {
-      segments.push(current);
-      current = [];
-    }
-    missingRun = 0;
-    current.push([coords.lat, coords.lon]);
-  }
-
-  if (current.length >= 2) segments.push(current);
-  return segments;
-}
-
-// This function computes the train position on the map.
-function computeTrainPosition(
-  schedule: TrainSchedule,
-  nowSeconds: number
-): {
-  lat: number;
-  lon: number;
-  atStop: boolean;
-  nextStopSlug: string | null;
-  etaSeconds: number | null;
-} | null {
-  const { points } = schedule;
-  if (points.length === 0) return null;
-  if (points.length === 1) {
-    return { lat: points[0].lat, lon: points[0].lon, atStop: true, nextStopSlug: points[0].slug, etaSeconds: 0 };
-  }
-
-  let i = 0;
-  while (i + 1 < points.length && points[i + 1].t <= nowSeconds) i++;
-
-  const p1 = points[i];
-  const p2 = points[Math.min(i + 1, points.length - 1)];
-  if (!p1 || !p2 || p1 === p2) {
-    return { lat: p1.lat, lon: p1.lon, atStop: true, nextStopSlug: p1.slug, etaSeconds: 0 };
-  }
-
-  const dt = p2.t - p1.t;
-  const clamped = dt > 0 ? Math.max(0, Math.min(1, (nowSeconds - p1.t) / dt)) : 0;
-
-  return {
-    lat: p1.lat + (p2.lat - p1.lat) * clamped,
-    lon: p1.lon + (p2.lon - p1.lon) * clamped,
-    atStop:
-      Math.abs(nowSeconds - p1.t) < AT_STOP_WINDOW_SEC ||
-      Math.abs(nowSeconds - p2.t) < AT_STOP_WINDOW_SEC,
-    nextStopSlug: nowSeconds <= p2.t ? p2.slug : p1.slug,
-    etaSeconds: Math.max(0, p2.t - nowSeconds),
-  };
-}
-
-async function fetchJson<T>(url: string): Promise<T> {
-  const res = await fetch(url, { headers: { "User-Agent": "mta-data-viz/1.0" } });
-  return (await res.json()) as T;
-}
-
-// This function fetches the data from the API with concurrency.
-async function mapWithConcurrency<T, R>(
-  items: T[],
-  concurrency: number,
-  fn: (item: T, index: number) => Promise<R>
-): Promise<R[]> {
-  const results: R[] = new Array(items.length);
-  let nextIndex = 0;
-
-  async function worker() {
-    while (true) {
-      const current = nextIndex++;
-      if (current >= items.length) return;
-      results[current] = await fn(items[current], current);
-    }
-  }
-
-  await Promise.all(Array.from({ length: concurrency }, worker));
-  return results;
-}
-
-// ─── Component ───────────────────────────────────────────────────────────────
 
 export default function LiveMap({
   visibleLineSlugs = null,
@@ -232,16 +56,17 @@ export default function LiveMap({
     Array<{ key: string; lineSlug: string; color: string; textColor: string; segments: LatLon[][] }>
   >([]);
   const [trains, setTrains] = useState<TrainSchedule[]>([]);
-  /** Start at 0 — sync to real time in `useLayoutEffect` to avoid SSR/client clock skew. */
   const [nowSeconds, setNowSeconds] = useState(0);
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
   const [loading, setLoading] = useState(true);
-  const [hasLoadedOnce, setHasLoadedOnce] = useState(false);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [selectedStationSlug, setSelectedStationSlug] = useState<string | null>(null);
+
   const abortRef = useRef<AbortController | null>(null);
   const mapRef = useRef<MapRef | null>(null);
+  const refreshGenerationRef = useRef(0);
+  const hasLoadedOnceRef = useRef(false);
 
-  // Align clock before paint, then tick every second (train interpolation).
   useLayoutEffect(() => {
     const tick = () => setNowSeconds(Math.floor(Date.now() / 1000));
     tick();
@@ -251,21 +76,36 @@ export default function LiveMap({
 
   const refresh = useCallback(async () => {
     abortRef.current?.abort();
-    abortRef.current = new AbortController();
+    const ac = new AbortController();
+    abortRef.current = ac;
+    const signal = ac.signal;
+    const gen = ++refreshGenerationRef.current;
 
-    if (!hasLoadedOnce) setLoading(true);
+    if (!hasLoadedOnceRef.current) setLoading(true);
+    setLoadError(null);
 
     try {
-      const linesJson = await fetchJson<{ ok: boolean; data: { lines: LineSummary[] } }>("/api/lines");
-      if (!linesJson.ok) return;
+      const linesJson = await fetchJson<{ ok: boolean; data: { lines: LineSummary[] } }>(
+        "/api/lines",
+        signal,
+      );
+      if (refreshGenerationRef.current !== gen) return;
+      if (!linesJson.ok) throw new Error("Lines request failed");
 
-      // Propagate line metadata so parent components don't need a separate fetch.
-      onLinesChange?.(linesJson.data.lines as LineOption[]);
+      onLinesChange?.(linesJson.data.lines);
 
-      const details = await mapWithConcurrency(linesJson.data.lines, FETCH_CONCURRENCY, async (line) => ({
-        line,
-        detail: await fetchJson<{ ok: boolean; data: LineDetail }>(`/api/lines/${line.slug}`),
-      }));
+      const details = await mapWithConcurrency(
+        linesJson.data.lines,
+        FETCH_CONCURRENCY,
+        async (line) => ({
+          line,
+          detail: await fetchJson<{ ok: boolean; data: LineDetail }>(
+            `/api/lines/${line.slug}`,
+            signal,
+          ),
+        }),
+      );
+      if (refreshGenerationRef.current !== gen) return;
 
       const newStationArrivals: Record<string, StationArrival[]> = {};
       const newSegments: typeof lineSegments = [];
@@ -324,28 +164,54 @@ export default function LiveMap({
           }
         }
 
-        if (bestUp) tripRequests.push({ tripId: bestUp.tripId, routeSlug: line.slug, line, direction: "uptown", lineShortName: line.short_name });
-        if (bestDown) tripRequests.push({ tripId: bestDown.tripId, routeSlug: line.slug, line, direction: "downtown", lineShortName: line.short_name });
+        if (bestUp) {
+          tripRequests.push({
+            tripId: bestUp.tripId,
+            routeSlug: line.slug,
+            line,
+            direction: "uptown",
+            lineShortName: line.short_name,
+          });
+        }
+        if (bestDown) {
+          tripRequests.push({
+            tripId: bestDown.tripId,
+            routeSlug: line.slug,
+            line,
+            direction: "downtown",
+            lineShortName: line.short_name,
+          });
+        }
       }
 
       const tripDetails = await mapWithConcurrency(tripRequests, FETCH_CONCURRENCY, async (tr) => ({
         tr,
         tripJson: await fetchJson<{ ok: boolean; data: TripResponse }>(
-          `/api/trips/${encodeURIComponent(tr.tripId)}?route=${encodeURIComponent(tr.routeSlug)}`
+          `/api/trips/${encodeURIComponent(tr.tripId)}?route=${encodeURIComponent(tr.routeSlug)}`,
+          signal,
         ),
       }));
+      if (refreshGenerationRef.current !== gen) return;
 
       const newTrains: TrainSchedule[] = [];
       for (const { tr, tripJson } of tripDetails) {
         if (!tripJson?.ok || !tripJson.data?.stops) continue;
         const delayed = tripJson.data.stops.some((s) =>
-          (s.status ?? "").toLowerCase().includes("delay")
+          (s.status ?? "").toLowerCase().includes("delay"),
         );
         const points: TrainPoint[] = tripJson.data.stops.flatMap((stop) => {
           const coords = getCoords(stop.station.slug);
           const tSec = stop.arrival_time ?? stop.departure_time;
           if (!coords || typeof tSec !== "number") return [];
-          return [{ slug: stop.station.slug, lat: coords.lat, lon: coords.lon, t: tSec, minutesAway: stop.minutes_away ?? null }];
+          return [
+            {
+              slug: stop.station.slug,
+              lat: coords.lat,
+              lon: coords.lon,
+              t: tSec,
+              minutesAway: stop.minutes_away ?? null,
+            },
+          ];
         });
         if (points.length >= 2) {
           newTrains.push({
@@ -367,13 +233,18 @@ export default function LiveMap({
       setLineSegments(newSegments);
       setTrains(newTrains.slice(0, MAX_TRAINS));
       setLastUpdated(new Date());
-      setLoading(false);
-      if (!hasLoadedOnce) setHasLoadedOnce(true);
-    } catch {
-      setLoading(false);
-      if (!hasLoadedOnce) setHasLoadedOnce(true);
+      setLoadError(null);
+    } catch (e) {
+      if (refreshGenerationRef.current !== gen) return;
+      if (signal.aborted || isAbortError(e)) return;
+      setLoadError(e instanceof Error ? e.message : "Could not load map data.");
+    } finally {
+      if (refreshGenerationRef.current === gen && !signal.aborted) {
+        setLoading(false);
+        hasLoadedOnceRef.current = true;
+      }
     }
-  }, [hasLoadedOnce, onLinesChange]);
+  }, [onLinesChange]);
 
   useEffect(() => {
     const bootstrapId = window.setTimeout(() => void refresh(), 0);
@@ -384,13 +255,11 @@ export default function LiveMap({
     };
   }, [refresh]);
 
-  // ─── Derived data ───────────────────────────────────────────────────────────
-
   const visibleLineSlugSet = useMemo(() => new Set(visibleLineSlugs ?? []), [visibleLineSlugs]);
 
   const filteredLineSegments = useMemo(
     () => lineSegments.filter((l) => visibleLineSlugs === null || visibleLineSlugSet.has(l.lineSlug)),
-    [lineSegments, visibleLineSlugSet, visibleLineSlugs]
+    [lineSegments, visibleLineSlugSet, visibleLineSlugs],
   );
 
   const lineFeatureCollection = useMemo(
@@ -404,19 +273,18 @@ export default function LiveMap({
             type: "LineString" as const,
             coordinates: seg.map(([lat, lon]) => [lon, lat]),
           },
-        }))
+        })),
       ),
     }),
-    [filteredLineSegments]
+    [filteredLineSegments],
   );
 
   const stationMarkerData = useMemo(() => {
-    return Object.keys(stationArrivals)
-      .flatMap((slug) => {
-        const coords = getCoords(slug);
-        if (!coords) return [];
-        return [{ slug, position: [coords.lat, coords.lon] as LatLon, arrivals: stationArrivals[slug] ?? [] }];
-      });
+    return Object.keys(stationArrivals).flatMap((slug) => {
+      const coords = getCoords(slug);
+      if (!coords) return [];
+      return [{ slug, position: [coords.lat, coords.lon] as LatLon, arrivals: stationArrivals[slug] ?? [] }];
+    });
   }, [stationArrivals]);
 
   const filteredStationMarkerData = useMemo(
@@ -424,36 +292,38 @@ export default function LiveMap({
       stationMarkerData
         .map((st) => ({
           ...st,
-          arrivals: visibleLineSlugs !== null
-            ? st.arrivals.filter((a) => visibleLineSlugSet.has(a.lineSlug))
-            : st.arrivals,
+          arrivals:
+            visibleLineSlugs !== null
+              ? st.arrivals.filter((a) => visibleLineSlugSet.has(a.lineSlug))
+              : st.arrivals,
         }))
         .filter((st) => st.arrivals.length > 0),
-    [stationMarkerData, visibleLineSlugSet, visibleLineSlugs]
+    [stationMarkerData, visibleLineSlugSet, visibleLineSlugs],
   );
 
-  // This function filters the trains to only the visible trains.
   const visibleTrainLocations = useMemo((): LiveTrainLocation[] => {
     return trains.flatMap((train) => {
       if (visibleLineSlugs !== null && !visibleLineSlugSet.has(train.lineSlug)) return [];
       const pos = computeTrainPosition(train, nowSeconds);
       if (!pos) return [];
       const nextStopCoords = pos.nextStopSlug ? getCoords(pos.nextStopSlug) : null;
-      return [{
-        key: train.key,
-        lineShortName: train.lineShortName,
-        direction: train.direction,
-        delayed: train.delayed,
-        color: train.color,
-        textColor: train.textColor,
-        lat: pos.lat,
-        lon: pos.lon,
-        atStop: pos.atStop,
-        nextStopSlug: pos.nextStopSlug,
-        etaMinutes: typeof pos.etaSeconds === "number" ? Math.max(0, Math.ceil(pos.etaSeconds / 60)) : null,
-        nextStopLat: nextStopCoords?.lat ?? null,
-        nextStopLon: nextStopCoords?.lon ?? null,
-      }];
+      return [
+        {
+          key: train.key,
+          lineShortName: train.lineShortName,
+          direction: train.direction,
+          delayed: train.delayed,
+          color: train.color,
+          textColor: train.textColor,
+          lat: pos.lat,
+          lon: pos.lon,
+          atStop: pos.atStop,
+          nextStopSlug: pos.nextStopSlug,
+          etaMinutes: typeof pos.etaSeconds === "number" ? Math.max(0, Math.ceil(pos.etaSeconds / 60)) : null,
+          nextStopLat: nextStopCoords?.lat ?? null,
+          nextStopLon: nextStopCoords?.lon ?? null,
+        },
+      ];
     });
   }, [trains, nowSeconds, visibleLineSlugs, visibleLineSlugSet]);
 
@@ -467,12 +337,10 @@ export default function LiveMap({
 
   const selectedStation = useMemo(
     () => filteredStationMarkerData.find((s) => s.slug === selectedStationSlug) ?? null,
-    [selectedStationSlug, filteredStationMarkerData]
+    [selectedStationSlug, filteredStationMarkerData],
   );
 
-  useEffect(() => {
-    onVisibleTrainsChange?.(visibleTrainLocations);
-  }, [onVisibleTrainsChange, visibleTrainLocations]);
+  useThrottledLiveTrainNotify(visibleTrainLocations, onVisibleTrainsChange);
 
   useEffect(() => {
     if (!focusLocation) return;
@@ -484,30 +352,29 @@ export default function LiveMap({
     });
   }, [focusLocation]);
 
-  // ─── Render ─────────────────────────────────────────────────────────────────
-
   return (
     <div className={ui.mapRoot}>
-      {/* Film-grain noise overlay */}
-      <div
-        className={ui.grainOverlay}
-        aria-hidden
-      />
+      <div className={ui.grainOverlay} aria-hidden />
 
-      {/* Last-updated timestamp */}
       <div className={ui.lastUpdatedBadge}>
         {lastUpdated
           ? `UPDATED ${lastUpdated.toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit", second: "2-digit" })}`
           : "LOADING…"}
       </div>
 
-      {/* Initial-load overlay */}
+      {loadError && (
+        <div className={ui.loadErrorBar} role="alert">
+          <span className={ui.loadErrorText}>{loadError}</span>
+          <button type="button" className={ui.loadErrorRetry} onClick={() => void refresh()}>
+            Retry
+          </button>
+        </div>
+      )}
+
       {loading && (
         <div className={ui.loadingOverlay}>
           <div className={ui.loadingPanel}>
-            <p className={ui.loadingText}>
-              Loading ...
-            </p>
+            <p className={ui.loadingText}>Loading ...</p>
             <div className={ui.loadingSkeleton} />
           </div>
         </div>
@@ -576,9 +443,7 @@ export default function LiveMap({
               offset={10}
             >
               <div className={ui.popupPanel}>
-                <div className={ui.popupTitle}>
-                  {selectedStation.slug.replaceAll("-", " ")}
-                </div>
+                <div className={ui.popupTitle}>{selectedStation.slug.replaceAll("-", " ")}</div>
                 <div className={ui.popupList}>
                   {selectedStation.arrivals.slice(0, 6).map((a) => (
                     <div key={a.lineId} className={ui.popupRow}>
@@ -606,9 +471,7 @@ export default function LiveMap({
           {visibleTrainLocations.map((train) => (
             <Marker key={train.key} latitude={train.lat} longitude={train.lon} anchor="center">
               <div
-                className={`${ui.trainMarkerBase} ${
-                  train.atStop ? ui.trainMarkerAtStop : ""
-                }`}
+                className={`${ui.trainMarkerBase} ${train.atStop ? ui.trainMarkerAtStop : ""}`}
                 style={{
                   background: train.color,
                   color: train.textColor,
@@ -630,7 +493,6 @@ export default function LiveMap({
         </Map>
       </div>
 
-      {/* Legend */}
       <div className={ui.legendPanel}>
         <p className={ui.legendTitle}>Legend</p>
         <div className={ui.legendRow}>

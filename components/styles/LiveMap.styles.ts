@@ -12,6 +12,15 @@ export const grainOverlay =
 export const lastUpdatedBadge =
   "absolute right-2 top-2 z-[800] max-w-[calc(100vw-6rem)] truncate retro-panel px-2 py-1 text-[8px] font-bold uppercase tracking-wide text-ink/60 sm:right-4 sm:top-3 sm:max-w-none sm:px-3 sm:text-[10px] sm:tracking-widest";
 
+export const loadErrorBar =
+  "absolute left-2 right-2 top-12 z-[850] flex flex-wrap items-center justify-between gap-2 retro-panel border-signal-red px-2 py-1.5 sm:left-4 sm:right-4 sm:top-14 sm:px-3";
+
+export const loadErrorText =
+  "text-[9px] font-bold uppercase tracking-wide text-signal-red";
+
+export const loadErrorRetry =
+  "shrink-0 rounded border-2 border-ink bg-panel-bg px-2 py-1 text-[9px] font-black uppercase tracking-wide text-ink hover:opacity-80";
+
 export const loadingOverlay =
   "absolute inset-0 z-[900] flex items-center justify-center";
 

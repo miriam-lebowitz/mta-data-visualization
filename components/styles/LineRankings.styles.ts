@@ -6,6 +6,15 @@
 export const page =
   "mx-auto flex min-h-0 w-full max-w-4xl flex-1 flex-col px-2 py-1.5 sm:px-4 sm:py-3";
 
+export const fetchErrorBar =
+  "mb-2 flex flex-wrap items-center justify-between gap-2 border-4 border-signal-red bg-parchment/90 px-3 py-2 sm:mb-3";
+
+export const fetchErrorText =
+  "text-[10px] font-black uppercase tracking-wide text-signal-red";
+
+export const fetchErrorRetry =
+  "retro-panel px-3 py-1.5 text-[9px] font-black uppercase tracking-widest text-ink hover:opacity-80";
+
 export const headerPanel =
   "retro-panel mb-1.5 shrink-0 px-2.5 py-2 sm:mb-3 sm:px-5 sm:py-3 max-md:mb-1";
 
