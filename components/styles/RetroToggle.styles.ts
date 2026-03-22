@@ -13,3 +13,14 @@ export const led =
 
 export const stateLabel =
   "text-[9px] font-bold uppercase tracking-widest text-[#888] transition-colors data-[on=true]:text-[var(--toggle-accent)]";
+
+/** Global styles in `app/globals.css` — exported here to keep class names out of the component. */
+export const track = "retro-toggle-track";
+
+const knob = "retro-toggle-knob";
+
+const knobOn = "retro-toggle-knob--on";
+
+export function knobClassName(checked: boolean): string {
+  return checked ? `${knob} ${knobOn}` : knob;
+}

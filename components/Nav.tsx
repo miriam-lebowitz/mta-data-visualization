@@ -5,8 +5,8 @@ import { usePathname } from "next/navigation";
 import * as ui from "./styles/Nav.styles";
 
 const LINKS = [
-  { href: "/", label: "LIVE MAP" },
-  { href: "/rankings", label: "LINE RANKINGS" },
+  { href: "/", shortLabel: "MAP", label: "LIVE MAP" },
+  { href: "/rankings", shortLabel: "RANK", label: "LINE RANKINGS" },
 ];
 
 export default function Nav() {
@@ -35,7 +35,7 @@ export default function Nav() {
 
         {/* Nav links */}
         <nav className={ui.navRow}>
-          {LINKS.map(({ href, label }) => {
+          {LINKS.map(({ href, shortLabel, label }) => {
             const active = href === "/" ? pathname === "/" : pathname.startsWith(href);
             return (
               <Link
@@ -43,8 +43,11 @@ export default function Nav() {
                 href={href}
                 data-active={active}
                 className={ui.link}
+                title={label}
+                aria-label={label}
               >
-                {label}
+                <span className={ui.linkLabelShort}>{shortLabel}</span>
+                <span className={ui.linkLabelFull}>{label}</span>
               </Link>
             );
           })}

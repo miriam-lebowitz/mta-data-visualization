@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import "mapbox-gl/dist/mapbox-gl.css";
 import Map, {
   Layer,
@@ -232,7 +232,8 @@ export default function LiveMap({
     Array<{ key: string; lineSlug: string; color: string; textColor: string; segments: LatLon[][] }>
   >([]);
   const [trains, setTrains] = useState<TrainSchedule[]>([]);
-  const [nowSeconds, setNowSeconds] = useState(() => Math.floor(Date.now() / 1000));
+  /** Start at 0 — sync to real time in `useLayoutEffect` to avoid SSR/client clock skew. */
+  const [nowSeconds, setNowSeconds] = useState(0);
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
   const [loading, setLoading] = useState(true);
   const [hasLoadedOnce, setHasLoadedOnce] = useState(false);
@@ -240,9 +241,11 @@ export default function LiveMap({
   const abortRef = useRef<AbortController | null>(null);
   const mapRef = useRef<MapRef | null>(null);
 
-  // Tick every second to smoothly animate train positions between refreshes.
-  useEffect(() => {
-    const id = setInterval(() => setNowSeconds(Math.floor(Date.now() / 1000)), 1000);
+  // Align clock before paint, then tick every second (train interpolation).
+  useLayoutEffect(() => {
+    const tick = () => setNowSeconds(Math.floor(Date.now() / 1000));
+    tick();
+    const id = setInterval(tick, 1000);
     return () => clearInterval(id);
   }, []);
 

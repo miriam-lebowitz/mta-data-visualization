@@ -14,3 +14,7 @@ export const sizes = {
   md: sizeMd,
   lg: sizeLg,
 } as const;
+
+export function classNameForSize(size: keyof typeof sizes): string {
+  return `${base} ${sizes[size]}`;
+}

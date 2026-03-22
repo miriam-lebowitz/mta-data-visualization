@@ -39,7 +39,7 @@ export default function RetroToggle({
 
       {/* Toggle track */}
       <div
-        className="retro-toggle-track"
+        className={ui.track}
         data-state={checked ? "on" : "off"}
         aria-hidden="true"
       >
@@ -49,7 +49,7 @@ export default function RetroToggle({
           data-on={checked ? "true" : "false"}
         />
         {/* Knob */}
-        <span className={`retro-toggle-knob ${checked ? "retro-toggle-knob--on" : ""}`} />
+        <span className={ui.knobClassName(checked)} />
       </div>
 
       <span

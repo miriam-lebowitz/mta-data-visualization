@@ -25,18 +25,6 @@ const CARD_W = 360;
 const PREVIEW_W = 300;
 const SCALE = PREVIEW_W / CARD_W;
 
-function scoreTextClass(score: number): string {
-  if (score >= 70) return "text-signal-green";
-  if (score >= 40) return "text-signal-yellow";
-  return "text-signal-red";
-}
-
-function scoreLabel(score: number): string {
-  if (score >= 70) return "GOOD";
-  if (score >= 40) return "FAIR";
-  return "POOR";
-}
-
 export default function ShareCardPreview({
   ls,
   rank,
@@ -99,11 +87,11 @@ export default function ShareCardPreview({
                 key={label}
                 className={`${ui.scoreCol} ${i < arr.length - 1 ? ui.scoreColDivider : ""}`}
               >
-                <span className={`${ui.scoreValue} ${scoreTextClass(val)}`}>
+                <span className={`${ui.scoreValue} ${ui.scoreTextToneClass(val)}`}>
                   {val}
                 </span>
-                <span className={`${ui.scoreLabel} ${scoreTextClass(val)}`}>
-                  {scoreLabel(val)}
+                <span className={`${ui.scoreLabel} ${ui.scoreTextToneClass(val)}`}>
+                  {ui.scoreBandLabel(val)}
                 </span>
                 <span className={ui.scoreName}>{label}</span>
               </div>

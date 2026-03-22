@@ -1,4 +1,4 @@
-import { base, sizes } from "./styles/LineBadge.styles";
+import { classNameForSize, sizes } from "./styles/LineBadge.styles";
 
 interface LineBadgeProps {
   label: string;
@@ -15,7 +15,7 @@ export default function LineBadge({
 }: LineBadgeProps) {
   return (
     <span
-      className={`${base} ${sizes[size]}`}
+      className={classNameForSize(size)}
       style={{ background: color, color: textColor }}
       aria-label={`Line ${label}`}
     >

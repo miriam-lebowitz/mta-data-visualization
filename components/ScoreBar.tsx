@@ -7,12 +7,6 @@ interface ScoreBarProps {
 
 export default function ScoreBar({ score, width = "100%" }: ScoreBarProps) {
   const clampedScore = Math.max(0, Math.min(100, score));
-  const fillClass =
-    clampedScore >= 70
-      ? "bg-signal-green"
-      : clampedScore >= 40
-        ? "bg-signal-yellow"
-        : "bg-signal-red";
 
   return (
     <div
@@ -29,7 +23,7 @@ export default function ScoreBar({ score, width = "100%" }: ScoreBarProps) {
       <span className={`${ui.tick} ${ui.tick75}`} aria-hidden />
       {/* Fill */}
       <span
-        className={`${ui.fillBase} ${fillClass}`}
+        className={`${ui.fillBase} ${ui.fillToneClass(clampedScore)}`}
         style={{ width: `${clampedScore}%` }}
       />
     </div>

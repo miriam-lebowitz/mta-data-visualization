@@ -219,7 +219,7 @@ export default function AlertsSidebar({
         )}
 
         <div className={ui.panel}>
-          <p className={`${ui.panelLabel} mb-2`}>Nearest Trains</p>
+          <p className={ui.nearestTrainsPanelLabel}>Nearest Trains</p>
           <div className={ui.addressRow}>
             <input
               type="text"
@@ -248,7 +248,9 @@ export default function AlertsSidebar({
           {nearestStationWalk && (
             <p className={ui.stationWalkMeta}>
               Nearest station:{" "}
-              <span className="capitalize">{nearestStationWalk.slug.replaceAll("-", " ")}</span>
+              <span className={ui.stationWalkSlug}>
+                {nearestStationWalk.slug.replaceAll("-", " ")}
+              </span>
               {" · "}Walk {nearestStationWalk.walkMinutes}m
             </p>
           )}

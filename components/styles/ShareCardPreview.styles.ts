@@ -65,3 +65,15 @@ export const footerLeft =
 
 export const footerRight =
   "text-[7px] font-bold uppercase tracking-[0.1em] text-ink/30";
+
+export function scoreTextToneClass(score: number): string {
+  if (score >= 70) return "text-signal-green";
+  if (score >= 40) return "text-signal-yellow";
+  return "text-signal-red";
+}
+
+export function scoreBandLabel(score: number): string {
+  if (score >= 70) return "GOOD";
+  if (score >= 40) return "FAIR";
+  return "POOR";
+}

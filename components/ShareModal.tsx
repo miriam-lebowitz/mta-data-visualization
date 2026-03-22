@@ -347,82 +347,87 @@ export default function ShareModal({ scores, onClose }: ShareModalProps) {
             {toast && <Toast message={toast} />}
           </div>
 
-          {/* Col 3: only shown once a line is selected */}
-          {selected && (
-            <div className={ui.actionsColumn}>
-              {/* Tagline editor */}
-              <div className={ui.taglineSection}>
-                <div className={ui.taglineLabelRow}>
-                  <label
-                    htmlFor="tagline-input"
-                    className={ui.taglineLabel}
-                  >
-                    Tagline
-                  </label>
-                  <button
-                    type="button"
-                    onClick={() => setCustomTagline(tagline(selected.line.short_name, rank, total))}
-                    className={ui.taglineReset}
-                    aria-label="Reset tagline to auto-generated"
-                  >
-                    Reset
-                  </button>
+          {/* Col 3: tagline + share (always mounted on mobile so scroll reveals it; locked until line picked) */}
+          <div className={ui.actionsColumn}>
+            {selected ? (
+              <>
+                <div className={ui.taglineSection}>
+                  <div className={ui.taglineLabelRow}>
+                    <label
+                      htmlFor="tagline-input"
+                      className={ui.taglineLabel}
+                    >
+                      Tagline
+                    </label>
+                    <button
+                      type="button"
+                      onClick={() => setCustomTagline(tagline(selected.line.short_name, rank, total))}
+                      className={ui.taglineReset}
+                      aria-label="Reset tagline to auto-generated"
+                    >
+                      Reset
+                    </button>
+                  </div>
+                  <textarea
+                    id="tagline-input"
+                    value={customTagline}
+                    onChange={(e) => setCustomTagline(e.target.value)}
+                    rows={3}
+                    maxLength={150}
+                    placeholder="Enter a custom tagline…"
+                    className={ui.taglineTextarea}
+                  />
+                  <span className={ui.taglineCountClassName(customTagline.length)}>
+                    {customTagline.length}/150
+                  </span>
                 </div>
-                <textarea
-                  id="tagline-input"
-                  value={customTagline}
-                  onChange={(e) => setCustomTagline(e.target.value)}
-                  rows={3}
-                  maxLength={150}
-                  placeholder="Enter a custom tagline…"
-                  className={ui.taglineTextarea}
-                />
-                <span className={`${ui.taglineCountBase} ${customTagline.length >= 130 ? ui.taglineCountWarn : ui.taglineCountMuted}`}>
-                  {customTagline.length}/150
-                </span>
-              </div>
 
-              <p className={ui.shareSectionTitle}>
-                Share
+                <p className={ui.shareSectionTitle}>
+                  Share
+                </p>
+                <button
+                  type="button"
+                  onClick={() => void handleDownload()}
+                  disabled={isDownloading}
+                  className={ui.shareActionButtonDisabled}
+                >
+                  <IconDownload />
+                  {isDownloading ? "Generating…" : "Download PNG"}
+                </button>
+
+                <button
+                  type="button"
+                  onClick={handleShareX}
+                  className={ui.shareActionButton}
+                >
+                  <IconX />
+                  X / Twitter
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => void handleShareInstagram()}
+                  className={ui.shareInstagramButton}
+                >
+                  <IconInstagram />
+                  Instagram
+                </button>
+
+                <button
+                  type="button"
+                  onClick={handleCopyLink}
+                  className={ui.shareActionButton}
+                >
+                  <IconCopy />
+                  Copy link
+                </button>
+              </>
+            ) : (
+              <p className={ui.actionsLockedHint}>
+                Select a line above to unlock the card preview and sharing options. On a phone, scroll the modal to see each section.
               </p>
-              <button
-                type="button"
-                onClick={() => void handleDownload()}
-                disabled={isDownloading}
-                className={ui.shareActionButtonDisabled}
-              >
-                <IconDownload />
-                {isDownloading ? "Generating…" : "Download PNG"}
-              </button>
-
-              <button
-                type="button"
-                onClick={handleShareX}
-                className={ui.shareActionButton}
-              >
-                <IconX />
-                X / Twitter
-              </button>
-
-              <button
-                type="button"
-                onClick={() => void handleShareInstagram()}
-                className={ui.shareInstagramButton}
-              >
-                <IconInstagram />
-                Instagram
-              </button>
-
-              <button
-                type="button"
-                onClick={handleCopyLink}
-                className={ui.shareActionButton}
-              >
-                <IconCopy />
-                Copy link
-              </button>
-            </div>
-          )}
+            )}
+          </div>
         </div>
       </div>
     </div>

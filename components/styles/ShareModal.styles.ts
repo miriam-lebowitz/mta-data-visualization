@@ -4,13 +4,13 @@
  */
 
 export const backdrop =
-  "fixed inset-0 z-[1000] flex items-center justify-center bg-ink/60 backdrop-blur-sm p-4";
+  "fixed inset-0 z-[1000] flex items-stretch justify-center bg-ink/60 p-0 backdrop-blur-sm sm:items-center sm:p-4";
 
 export const dialog =
-  "retro-panel w-full max-w-4xl max-h-[90vh] flex flex-col overflow-hidden";
+  "retro-panel flex h-[100dvh] max-h-[100dvh] w-full max-w-none flex-col overflow-hidden sm:h-auto sm:max-h-[min(90vh,900px)] sm:max-w-4xl";
 
 export const modalHeader =
-  "flex items-center justify-between px-5 py-3 border-b-4 border-ink shrink-0";
+  "flex shrink-0 items-center justify-between border-b-4 border-ink px-3 py-2.5 sm:px-5 sm:py-3";
 
 export const modalTitle = "text-base font-black tracking-[0.08em] uppercase text-ink";
 
@@ -18,18 +18,20 @@ export const modalSubtitle =
   "text-[9px] font-bold tracking-[0.12em] uppercase text-ink/50 mt-0.5";
 
 export const closeButton =
-  "text-ink/50 hover:text-ink text-2xl font-black leading-none w-8 h-8 flex items-center justify-center";
+  "flex h-11 w-11 min-h-11 min-w-11 items-center justify-center text-2xl font-black leading-none text-ink/50 touch-manipulation hover:text-ink sm:h-8 sm:w-8 sm:min-h-0 sm:min-w-0";
 
+/** Mobile: single vertical scroll through picker → preview → actions. Desktop: row + column scroll. */
 export const bodyColumns =
-  "flex flex-col sm:flex-row flex-1 min-h-0 overflow-hidden";
+  "flex min-h-0 flex-1 flex-col overflow-y-auto overscroll-y-contain sm:flex-row sm:overflow-hidden";
 
 export const pickerColumn =
-  "sm:w-52 shrink-0 border-b-4 sm:border-b-0 sm:border-r-4 border-ink p-4 overflow-y-auto scrollbar-thin";
+  "shrink-0 border-b-4 border-ink p-3 sm:w-52 sm:shrink-0 sm:overflow-y-auto sm:border-b-0 sm:border-r-4 sm:p-4 sm:scrollbar-thin";
 
 export const pickerTitle =
   "text-[9px] font-black tracking-[0.16em] uppercase text-ink/50 mb-3";
 
-export const pickerGrid = "grid grid-cols-4 sm:grid-cols-3 gap-2";
+export const pickerGrid =
+  "grid grid-cols-4 gap-1.5 sm:grid-cols-3 sm:gap-2";
 
 export const linePickerButtonBase =
   "flex flex-col items-center gap-1 rounded p-1.5 transition-colors hover:bg-ink/5";
@@ -41,7 +43,7 @@ export const linePickerButtonUnselected = "outline-none";
 export const linePickerRank = "text-[8px] font-bold text-ink/40 tabular-nums";
 
 export const previewColumn =
-  "flex-1 px-4 py-4 flex items-center justify-center overflow-y-auto scrollbar-thin border-b-4 sm:border-b-0 sm:border-r-4 border-ink relative";
+  "relative flex shrink-0 flex-col items-center justify-center border-b-4 border-ink px-3 py-3 max-sm:overflow-x-auto sm:flex-1 sm:overflow-y-auto sm:border-r-4 sm:border-b-0 sm:px-4 sm:py-4 sm:scrollbar-thin";
 
 export const previewPlaceholder = "flex flex-col items-center justify-center text-center gap-3";
 
@@ -52,10 +54,13 @@ export const previewPlaceholderText =
   "text-[11px] font-black tracking-widest uppercase text-ink/40";
 
 export const toast =
-  "absolute bottom-16 left-1/2 -translate-x-1/2 retro-panel px-4 py-2 text-[11px] font-black tracking-widest uppercase text-ink whitespace-nowrap z-10";
+  "absolute bottom-[max(1rem,env(safe-area-inset-bottom))] left-1/2 z-10 max-w-[min(100%,calc(100vw-2rem))] -translate-x-1/2 whitespace-normal break-words px-4 py-2 text-center text-[10px] font-black uppercase tracking-widest text-ink retro-panel sm:bottom-16 sm:max-w-none sm:whitespace-nowrap sm:text-[11px]";
 
 export const actionsColumn =
-  "sm:w-44 shrink-0 p-4 flex flex-col gap-2 justify-start overflow-y-auto scrollbar-thin";
+  "flex shrink-0 flex-col justify-start gap-2 border-t-4 border-ink p-4 sm:w-44 sm:overflow-y-auto sm:border-l-4 sm:border-t-0 sm:border-ink sm:scrollbar-thin";
+
+export const actionsLockedHint =
+  "px-1 py-4 text-center text-[10px] font-bold uppercase leading-relaxed tracking-wider text-ink/45";
 
 export const taglineSection = "flex flex-col gap-1 mb-2";
 
@@ -75,6 +80,10 @@ export const taglineCountBase = "text-[8px] text-right tabular-nums";
 export const taglineCountWarn = "text-amber-600";
 
 export const taglineCountMuted = "text-ink/30";
+
+export function taglineCountClassName(length: number): string {
+  return `${taglineCountBase} ${length >= 130 ? taglineCountWarn : taglineCountMuted}`;
+}
 
 export const shareSectionTitle =
   "text-[9px] font-black tracking-[0.16em] uppercase text-ink/50 mb-1";

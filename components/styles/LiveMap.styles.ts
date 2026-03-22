@@ -3,13 +3,14 @@
  * Train / arrival dot colors remain inline `style` (API-driven).
  */
 
-export const mapRoot = "relative w-full h-full aged-paper overflow-hidden";
+export const mapRoot =
+  "relative h-full w-full touch-manipulation overflow-hidden aged-paper";
 
 export const grainOverlay =
   "map-film-grain-overlay pointer-events-none absolute inset-0 mix-blend-multiply";
 
 export const lastUpdatedBadge =
-  "absolute top-3 right-4 z-[800] retro-panel px-3 py-1 text-[10px] font-bold tracking-widest uppercase text-ink/60";
+  "absolute right-2 top-2 z-[800] max-w-[calc(100vw-6rem)] truncate retro-panel px-2 py-1 text-[8px] font-bold uppercase tracking-wide text-ink/60 sm:right-4 sm:top-3 sm:max-w-none sm:px-3 sm:text-[10px] sm:tracking-widest";
 
 export const loadingOverlay =
   "absolute inset-0 z-[900] flex items-center justify-center";
@@ -60,7 +61,7 @@ export const trainDelayBadge =
   "absolute -right-[7px] -top-[7px] flex items-center justify-center size-2.5 rounded-full bg-signal-red border border-ink text-[7px] font-black leading-none text-white";
 
 export const legendPanel =
-  "absolute bottom-3 left-4 z-[800] retro-panel px-3 py-2 max-w-[260px]";
+  "absolute bottom-2 left-2 z-[800] max-w-[min(260px,calc(100vw-1rem))] retro-panel px-2 py-1.5 sm:bottom-3 sm:left-4 sm:max-w-[260px] sm:px-3 sm:py-2";
 
 export const legendTitle =
   "text-[9px] font-black tracking-[0.15em] uppercase text-ink/60 mb-1";

@@ -74,18 +74,6 @@ function computeComposite(ls: LineScore, weights: Weights): number {
   return Math.round(sum / active);
 }
 
-function scoreClass(score: number): string {
-  if (score >= 70) return "status-ok";
-  if (score >= 40) return "status-warn";
-  return "status-bad";
-}
-
-function scoreTextClass(score: number): string {
-  if (score >= 70) return "text-signal-green";
-  if (score >= 40) return "text-signal-yellow";
-  return "text-signal-red";
-}
-
 // ─── Row component ───────────────────────────────────────────────────────────
 
 function RankRow({
@@ -140,9 +128,9 @@ function RankRow({
         <SolariFlip
           value={composite}
           decimals={0}
-          className={`${ui.solariComposite} ${scoreClass(composite)}`}
+          className={`${ui.solariComposite} ${ui.scoreClass(composite)}`}
         />
-        <p className={`${ui.compositeLabel} ${scoreTextClass(composite)}`}>
+        <p className={`${ui.compositeLabel} ${ui.scoreTextClass(composite)}`}>
           {composite >= 70 ? "GOOD" : composite >= 40 ? "FAIR" : "POOR"}
         </p>
       </div>
@@ -154,7 +142,7 @@ function SubScore({ label, value }: { label: string; value: number }) {
   return (
     <div className={ui.subScoreCell}>
       <p className={ui.subScoreLabel}>{label}</p>
-      <p className={`${ui.subScoreValue} ${scoreTextClass(value)}`}>
+      <p className={`${ui.subScoreValue} ${ui.scoreTextClass(value)}`}>
         {value}
       </p>
     </div>
@@ -172,13 +160,18 @@ export default function LineRankings() {
   });
   const [loading, setLoading] = useState(true);
   const [shareModalOpen, setShareModalOpen] = useState(false);
-  const [now, setNow] = useState(new Date());
+  /** `null` until after mount — avoids SSR/client clock mismatch (hydration errors). */
+  const [now, setNow] = useState<Date | null>(null);
   const tickRef = useRef<number | null>(null);
 
-  // Clock tick
+  // Clock tick (client-only)
   useEffect(() => {
-    tickRef.current = window.setInterval(() => setNow(new Date()), 1000);
-    return () => { if (tickRef.current) window.clearInterval(tickRef.current); };
+    const tick = () => setNow(new Date());
+    tick();
+    tickRef.current = window.setInterval(tick, 1000);
+    return () => {
+      if (tickRef.current) window.clearInterval(tickRef.current);
+    };
   }, []);
 
   const fetchData = useCallback(async () => {
@@ -253,17 +246,23 @@ export default function LineRankings() {
     .map((ls) => ({ ...ls, composite: computeComposite(ls, weights) }))
     .sort((a, b) => b.composite - a.composite);
 
-  const timeStr = now.toLocaleTimeString("en-US", {
-    hour: "2-digit",
-    minute: "2-digit",
-    second: "2-digit",
-  });
-  const dateStr = now.toLocaleDateString("en-US", {
-    weekday: "short",
-    month: "short",
-    day: "numeric",
-    year: "numeric",
-  }).toUpperCase();
+  const timeStr = now
+    ? now.toLocaleTimeString("en-US", {
+        hour: "2-digit",
+        minute: "2-digit",
+        second: "2-digit",
+      })
+    : "--:--:--";
+  const dateStr = now
+    ? now
+        .toLocaleDateString("en-US", {
+          weekday: "short",
+          month: "short",
+          day: "numeric",
+          year: "numeric",
+        })
+        .toUpperCase()
+    : "—";
 
   return (
     <div className={ui.page}>
@@ -409,11 +408,7 @@ export default function LineRankings() {
         <div className={ui.footerLegendRow}>
           {(["normal", "minor", "major"] as const).map((level, i) => (
             <span key={level} className={ui.footerLegendItem}>
-              <span
-                className={`${ui.footerLegendSwatchBase} ${
-                  i === 0 ? "bg-signal-green" : i === 1 ? "bg-signal-yellow" : "bg-signal-red"
-                }`}
-              />
+              <span className={ui.footerLegendSwatches[i]} />
               <span className={ui.footerLegendLabel}>
                 {i === 0 ? "Good" : i === 1 ? "Fair" : "Poor"}
               </span>

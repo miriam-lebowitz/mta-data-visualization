@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Barlow_Condensed, Share_Tech_Mono } from "next/font/google";
 import "./globals.css";
 import Nav from "@/components/Nav";
@@ -54,6 +54,13 @@ export const metadata: Metadata = {
   category: "transportation",
 };
 
+export const viewport: Viewport = {
+  width: "device-width",
+  initialScale: 1,
+  viewportFit: "cover",
+  themeColor: "#f5f0e8",
+};
+
 export default function RootLayout({
   children,
 }: Readonly<{
@@ -64,9 +71,9 @@ export default function RootLayout({
       lang="en"
       className={`${barlowCondensed.variable} ${shareTechMono.variable} h-full`}
     >
-      <body className="h-full flex flex-col bg-background text-foreground overflow-hidden">
+      <body className="flex h-full flex-col overflow-hidden bg-background text-foreground pb-[env(safe-area-inset-bottom,0px)]">
         <Nav />
-        <main className="flex flex-col flex-1 min-h-0">{children}</main>
+        <main className="flex min-h-0 flex-1 flex-col">{children}</main>
       </body>
     </html>
   );

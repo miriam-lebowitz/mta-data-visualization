@@ -30,7 +30,7 @@ export const alertSeverityLabel: Record<AlertSeverity, string> = {
 /* ─── Shell ─────────────────────────────────────────────────────────────── */
 
 export const aside =
-  "flex flex-col h-full retro-panel border-y-0 border-r-0 w-72 shrink-0";
+  "flex h-full min-h-0 w-full shrink-0 flex-col retro-panel border-y-0 border-r-0 md:w-72";
 
 export const header = "px-4 py-3 border-b-4 border-ink";
 
@@ -52,11 +52,17 @@ export const panelSectionHeader = "flex items-center justify-between gap-2 mb-2"
 
 export const panelLabel = "text-[9px] font-black tracking-[0.14em] uppercase text-ink/60";
 
+/** “Nearest Trains” heading — same as `panelLabel` with spacing below. */
+export const nearestTrainsPanelLabel = `${panelLabel} mb-2`;
+
+export const stationWalkSlug = "capitalize";
+
 export const panelHeaderActions = "flex items-center gap-2";
 
 export const textButtonMuted = "text-[9px] font-bold text-ink/60 hover:text-ink";
 
-export const lineToggleGrid = "grid grid-cols-4 gap-1.5";
+export const lineToggleGrid =
+  "grid grid-cols-[repeat(auto-fill,minmax(2.25rem,1fr))] gap-1.5 sm:grid-cols-4";
 
 const lineToggleBase =
   "h-6 rounded border text-[10px] font-black transition-opacity";
@@ -82,13 +88,13 @@ export function lineToggleOnStyle(line: {
 
 /* ─── Nearest trains ──────────────────────────────────────────────────────── */
 
-export const addressRow = "flex items-center gap-2";
+export const addressRow = "flex flex-col gap-2 sm:flex-row sm:items-center";
 
 export const addressInput =
-  "min-w-0 flex-1 h-7 px-2 border border-ink/20 rounded text-[10px] bg-parchment/70 text-ink";
+  "min-h-11 min-w-0 flex-1 rounded border border-ink/20 bg-parchment/70 px-3 py-2 text-base text-ink sm:h-7 sm:min-h-0 sm:px-2 sm:py-0 sm:text-[10px]";
 
 export const findButton =
-  "h-7 px-2 rounded border border-ink/20 text-[10px] font-bold text-ink/70 hover:text-ink disabled:opacity-50";
+  "min-h-11 shrink-0 rounded border border-ink/20 px-4 text-xs font-bold text-ink/70 touch-manipulation hover:text-ink disabled:opacity-50 sm:h-7 sm:min-h-0 sm:px-2 sm:text-[10px]";
 
 export const errorText = "text-[9px] text-signal-red mt-1 font-bold";
 
