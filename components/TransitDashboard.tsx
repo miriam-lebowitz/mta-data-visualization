@@ -129,8 +129,10 @@ export default function TransitDashboard() {
     if (!dragRef.current || !rootRef.current) return;
     e.preventDefault();
     const rootH = rootRef.current.getBoundingClientRect().height;
+    // Screen Y grows downward; dragging *up* should expand the bottom panel (bottom-sheet
+    // behavior), so sidebar height moves opposite to raw clientY delta.
     const delta = e.clientY - dragRef.current.startY;
-    const next = dragRef.current.startHeight + delta;
+    const next = dragRef.current.startHeight - delta;
     setSidebarHeightPx(clampSidebarHeight(next, rootH));
   }, []);
 
@@ -157,14 +159,14 @@ export default function TransitDashboard() {
         }
       };
 
-      if (e.key === "ArrowDown") {
+      if (e.key === "ArrowUp") {
         e.preventDefault();
         setSidebarHeightPx((prev) => {
           const n = clampSidebarHeight(prev + step, rootH);
           save(n);
           return n;
         });
-      } else if (e.key === "ArrowUp") {
+      } else if (e.key === "ArrowDown") {
         e.preventDefault();
         setSidebarHeightPx((prev) => {
           const n = clampSidebarHeight(prev - step, rootH);
@@ -208,7 +210,7 @@ export default function TransitDashboard() {
       <div
         role="separator"
         aria-orientation="horizontal"
-        aria-label="Resize map and alerts: drag vertically, or use arrow keys, Home for smallest panel, End for largest"
+        aria-label="Resize map and alerts: drag up to show more alerts, down for more map; Arrow up expands alerts, Arrow down shrinks; Home smallest, End largest"
         aria-valuemin={MIN_SIDEBAR_PX}
         aria-valuemax={sidebarMaxPx}
         aria-valuenow={Math.round(sidebarHeightPx)}
