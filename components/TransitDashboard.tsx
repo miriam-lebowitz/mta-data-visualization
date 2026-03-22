@@ -4,6 +4,7 @@ import { useCallback, useState } from "react";
 import AlertsSidebar from "@/components/AlertsSidebar";
 import LiveMapWrapper from "@/components/LiveMapWrapper";
 import type { GeoLocation, LineOption, LiveTrainLocation } from "@/lib/types";
+import * as ui from "./styles/TransitDashboard.styles";
 
 export default function TransitDashboard() {
   const [lineOptions, setLineOptions] = useState<LineOption[]>([]);
@@ -22,8 +23,8 @@ export default function TransitDashboard() {
   }, []);
 
   return (
-    <div className="flex flex-1 min-h-0 overflow-hidden">
-      <div className="flex-1 relative overflow-hidden">
+    <div className={ui.root}>
+      <div className={ui.mapPane}>
         <LiveMapWrapper
           visibleLineSlugs={visibleLineSlugs}
           onVisibleTrainsChange={setVisibleTrains}

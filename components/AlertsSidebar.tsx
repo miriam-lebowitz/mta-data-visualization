@@ -4,16 +4,25 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { STATION_COORDS } from "./StationCoords";
 import { geocodeAddress, GeocodeError } from "@/lib/geocode";
 import type { GeoLocation, LineOption, LiveTrainLocation } from "@/lib/types";
+import * as ui from "./styles/AlertsSidebar.styles";
 
 interface Alert {
   id: string;
   line: string;
   header: string;
   description: string;
-  severity: "normal" | "minor" | "major";
+  severity: ui.AlertSeverity;
   updatedAt: string;
 }
 
+/**
+ * Great-circle distance between two lat/lon points on Earth (miles), using the haversine formula.
+ *
+ * 1. Convert degree differences to radians.
+ * 2. Compute the “haversine” of half the central angle between the points on the sphere
+ *    (uses sin²(Δlat/2) + cos(lat₁)cos(lat₂)sin²(Δlon/2) so it’s stable for short distances).
+ * 3. Solve for the central angle, then multiply by Earth’s radius (~3958.8 mi) to get arc length.
+ */
 function haversineMiles(a: GeoLocation, b: GeoLocation): number {
   const toRad = (d: number) => (d * Math.PI) / 180;
   const R = 3958.8;
@@ -25,61 +34,39 @@ function haversineMiles(a: GeoLocation, b: GeoLocation): number {
   return 2 * R * Math.asin(Math.sqrt(h));
 }
 
-const SEVERITY_STRIPE: Record<Alert["severity"], string> = {
-  major: "bg-signal-red",
-  minor: "bg-signal-yellow",
-  normal: "bg-signal-green",
-};
-
-const SEVERITY_TEXT: Record<Alert["severity"], string> = {
-  major: "text-signal-red",
-  minor: "text-signal-yellow",
-  normal: "text-signal-green",
-};
-
-const SEVERITY_LABEL: Record<Alert["severity"], string> = {
-  major: "SERVICE CHANGE",
-  minor: "DELAYS",
-  normal: "ADVISORY",
-};
-
 function AlertCard({ alert }: { alert: Alert }) {
   const [expanded, setExpanded] = useState(false);
 
   return (
     <button
       type="button"
-      className="w-full text-left retro-panel mb-2 p-0 overflow-hidden cursor-pointer hover:opacity-90 transition-opacity"
+      className={ui.alertCardButton}
       onClick={() => setExpanded((e) => !e)}
       aria-expanded={expanded}
     >
-      <div className="flex items-stretch">
+      <div className={ui.alertCardRow}>
         <span
-          className={`w-2 shrink-0 ${SEVERITY_STRIPE[alert.severity]}`}
+          className={`${ui.alertCardStripe} ${ui.alertSeverityStripe[alert.severity]}`}
           aria-hidden="true"
         />
-        <div className="flex-1 px-2 py-1.5">
-          <div className="flex items-center justify-between gap-2">
+        <div className={ui.alertCardBody}>
+          <div className={ui.alertCardMetaRow}>
             <span
-              className={`text-[9px] font-black tracking-[0.12em] uppercase ${SEVERITY_TEXT[alert.severity]}`}
+              className={`${ui.alertCardSeverity} ${ui.alertSeverityText[alert.severity]}`}
             >
-              {SEVERITY_LABEL[alert.severity]}
+              {ui.alertSeverityLabel[alert.severity]}
             </span>
-            <span className="text-[9px] font-bold text-ink/40 shrink-0">
-              {alert.line}
-            </span>
+            <span className={ui.alertCardLine}>{alert.line}</span>
           </div>
-          <p className="text-[11px] font-bold text-ink leading-tight mt-0.5 line-clamp-2">
-            {alert.header}
-          </p>
+          <p className={ui.alertCardHeader}>{alert.header}</p>
         </div>
       </div>
 
       {expanded && alert.description && (
-        <div className="px-3 pb-2 pt-1 border-t-2 border-ink/20">
-          <p className="text-[10px] text-ink/70 leading-relaxed">{alert.description}</p>
+        <div className={ui.alertCardExpanded}>
+          <p className={ui.alertCardDescription}>{alert.description}</p>
           {alert.updatedAt && (
-            <p className="text-[9px] text-ink/40 mt-1 font-mono">{alert.updatedAt}</p>
+            <p className={ui.alertCardUpdated}>{alert.updatedAt}</p>
           )}
         </div>
       )}
@@ -185,46 +172,31 @@ export default function AlertsSidebar({
   }, [userLocation]);
 
   return (
-    <aside className="flex flex-col h-full retro-panel border-y-0 border-r-0 w-72 shrink-0">
-      {/* Header */}
-      <div className="px-4 py-3 border-b-4 border-ink">
-        <h2 className="text-xs font-black tracking-[0.18em] uppercase text-ink">
-          System Alerts
-        </h2>
+    <aside className={ui.aside}>
+      <div className={ui.header}>
+        <h2 className={ui.headerTitle}>System Alerts</h2>
         {lastFetched && (
-          <p className="text-[9px] text-ink/50 font-mono mt-0.5">
+          <p className={ui.headerTime}>
             {lastFetched.toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" })}
           </p>
         )}
       </div>
 
-      {/* Scrollable content */}
-      <div className="flex-1 overflow-y-auto p-2 scrollbar-thin">
-        {/* Line visibility toggles */}
+      <div className={ui.scrollArea}>
         {lineOptions.length > 0 && onToggleLine && (
-          <div className="retro-panel p-2 mb-2">
-            <div className="flex items-center justify-between gap-2 mb-2">
-              <p className="text-[9px] font-black tracking-[0.14em] uppercase text-ink/60">
-                Visible Lines
-              </p>
-              <div className="flex items-center gap-2">
-                <button
-                  type="button"
-                  className="text-[9px] font-bold text-ink/60 hover:text-ink"
-                  onClick={onShowAllLines}
-                >
+          <div className={ui.panel}>
+            <div className={ui.panelSectionHeader}>
+              <p className={ui.panelLabel}>Visible Lines</p>
+              <div className={ui.panelHeaderActions}>
+                <button type="button" className={ui.textButtonMuted} onClick={onShowAllLines}>
                   All
                 </button>
-                <button
-                  type="button"
-                  className="text-[9px] font-bold text-ink/60 hover:text-ink"
-                  onClick={onHideAllLines}
-                >
+                <button type="button" className={ui.textButtonMuted} onClick={onHideAllLines}>
                   None
                 </button>
               </div>
             </div>
-            <div className="grid grid-cols-4 gap-1.5">
+            <div className={ui.lineToggleGrid}>
               {lineOptions.map((line) => {
                 const isOn =
                   visibleLineSlugs === null || visibleLineSlugs.includes(line.slug);
@@ -233,13 +205,8 @@ export default function AlertsSidebar({
                     key={line.slug}
                     type="button"
                     onClick={() => onToggleLine(line.slug)}
-                    className="h-6 rounded border text-[10px] font-black transition-opacity"
-                    style={{
-                      background: isOn ? line.color : "rgba(0,0,0,0.04)",
-                      color: isOn ? (line.text_color || "#fff") : "var(--ink)",
-                      borderColor: isOn ? "rgba(0,0,0,0.2)" : "rgba(0,0,0,0.18)",
-                      opacity: isOn ? 1 : 0.7,
-                    }}
+                    className={ui.lineToggleClassName(isOn)}
+                    style={isOn ? ui.lineToggleOnStyle(line) : undefined}
                     aria-pressed={isOn}
                     title={line.short_name}
                   >
@@ -251,23 +218,20 @@ export default function AlertsSidebar({
           </div>
         )}
 
-        {/* Nearest trains */}
-        <div className="retro-panel p-2 mb-2">
-          <p className="text-[9px] font-black tracking-[0.14em] uppercase text-ink/60 mb-2">
-            Nearest Trains
-          </p>
-          <div className="flex items-center gap-2">
+        <div className={ui.panel}>
+          <p className={`${ui.panelLabel} mb-2`}>Nearest Trains</p>
+          <div className={ui.addressRow}>
             <input
               type="text"
               value={addressInput}
               onChange={(e) => setAddressInput(e.target.value)}
               onKeyDown={(e) => e.key === "Enter" && void handleFindLocation()}
               placeholder="Enter address (e.g. Times Square)"
-              className="min-w-0 flex-1 h-7 px-2 border border-ink/20 rounded text-[10px] bg-parchment/70 text-ink"
+              className={ui.addressInput}
             />
             <button
               type="button"
-              className="h-7 px-2 rounded border border-ink/20 text-[10px] font-bold text-ink/70 hover:text-ink disabled:opacity-50"
+              className={ui.findButton}
               disabled={isResolvingLocation}
               onClick={() => void handleFindLocation()}
             >
@@ -275,16 +239,14 @@ export default function AlertsSidebar({
             </button>
           </div>
 
-          {locationError && (
-            <p className="text-[9px] text-signal-red mt-1 font-bold">{locationError}</p>
-          )}
+          {locationError && <p className={ui.errorText}>{locationError}</p>}
 
           {!locationError && userLocation && nearestTrains.length === 0 && (
-            <p className="text-[9px] text-ink/50 mt-2">No visible trains right now.</p>
+            <p className={ui.mutedHint}>No visible trains right now.</p>
           )}
 
           {nearestStationWalk && (
-            <p className="text-[9px] text-ink/60 mt-2 font-mono">
+            <p className={ui.stationWalkMeta}>
               Nearest station:{" "}
               <span className="capitalize">{nearestStationWalk.slug.replaceAll("-", " ")}</span>
               {" · "}Walk {nearestStationWalk.walkMinutes}m
@@ -292,31 +254,19 @@ export default function AlertsSidebar({
           )}
 
           {nearestTrains.length > 0 && (
-            <ul className="mt-2 space-y-1.5">
+            <ul className={ui.trainList}>
               {nearestTrains.map((train) => (
-                <li
-                  key={train.key}
-                  className="flex items-center justify-between gap-2 text-[10px]"
-                >
-                  <div className="flex items-center gap-2 min-w-0">
-                    <span
-                      className="inline-flex items-center justify-center w-4 h-4 rounded-full border border-ink/30 text-[9px] font-black text-white shrink-0"
-                      style={{
-                        background: train.delayed ? "var(--signal-red)" : "var(--ink)",
-                      }}
-                    >
+                <li key={train.key} className={ui.trainRow}>
+                  <div className={ui.trainRowLeft}>
+                    <span className={ui.trainLineBadgeClassName(train.delayed)}>
                       {train.lineShortName.slice(0, 2)}
                     </span>
-                    <span className="text-ink/70 font-bold uppercase truncate">
-                      {train.direction}
-                    </span>
+                    <span className={ui.trainDirection}>{train.direction}</span>
                     {train.delayed && (
-                      <span className="text-[8px] font-black text-signal-red shrink-0">
-                        DELAYED
-                      </span>
+                      <span className={ui.trainDelayedTag}>DELAYED</span>
                     )}
                   </div>
-                  <span className="font-mono text-ink/60 whitespace-nowrap">
+                  <span className={ui.trainMeta}>
                     {train.distanceMiles.toFixed(2)} mi
                     {" · "}ETA{" "}
                     {typeof train.etaMinutes === "number" ? `${train.etaMinutes}m` : "—"}
@@ -327,28 +277,29 @@ export default function AlertsSidebar({
           )}
         </div>
 
-        {/* Alerts loading skeleton */}
         {loading && (
-          <div className="space-y-2">
+          <div className={ui.skeletonStack}>
             {Array.from({ length: 4 }, (_, i) => (
-              <div key={i} className="skeleton h-12 rounded" />
+              <div key={i} className={ui.skeletonBlock} />
             ))}
           </div>
         )}
 
         {!loading && error && (
-          <div className="text-center py-8">
-            <p className="text-[11px] font-bold status-bad">FEED UNAVAILABLE</p>
-            <p className="text-[10px] text-ink/50 mt-1">Could not reach MTA servers</p>
+          <div className={ui.errorState}>
+            <p className={ui.errorTitle}>FEED UNAVAILABLE</p>
+            <p className={ui.errorSub}>Could not reach MTA servers</p>
           </div>
         )}
 
         {!loading && !error && alerts.length === 0 && (
-          <div className="flex items-center gap-2 py-1.5 px-1">
-            <span className="text-base leading-none text-signal-green shrink-0" aria-hidden="true">◉</span>
+          <div className={ui.goodServiceRow}>
+            <span className={ui.goodServiceIcon} aria-hidden="true">
+              ◉
+            </span>
             <div>
-              <p className="text-[11px] font-black tracking-widest uppercase status-ok leading-tight">Good Service</p>
-              <p className="text-[9px] text-ink/50 leading-tight">All lines operating normally</p>
+              <p className={ui.goodServiceTitle}>Good Service</p>
+              <p className={ui.goodServiceSub}>All lines operating normally</p>
             </div>
           </div>
         )}
@@ -356,9 +307,8 @@ export default function AlertsSidebar({
         {!loading && alerts.map((alert) => <AlertCard key={alert.id} alert={alert} />)}
       </div>
 
-      {/* Footer */}
-      <div className="px-3 py-2 border-t-4 border-ink">
-        <p className="text-[8px] text-ink/40 font-mono leading-tight">
+      <div className={ui.footer}>
+        <p className={ui.footerMeta}>
           SOURCE: MTA SERVICE STATUS
           <br />
           AUTO-REFRESH 60s

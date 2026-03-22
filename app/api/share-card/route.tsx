@@ -1,12 +1,11 @@
+/**
+ * PNG share card via next/og (Satori). Styling must stay inline-compatible:
+ * Tailwind and external CSS are not applied here — see lib/share-card-image/og-styles.ts.
+ */
 import { ImageResponse } from "next/og";
+import { CARD_HEIGHT, CARD_WIDTH, ogStyles } from "@/lib/share-card-image/og-styles";
 
 export const runtime = "edge";
-
-// Card dimensions — 1:1 square, works for Instagram feed, Twitter, and Stories (letterboxed)
-const W = 1080;
-const H = 1080;
-
-// ─── Taglines ────────────────────────────────────────────────────────────────
 
 function tagline(lineName: string, rank: number, total: number): string {
   if (rank === 1) return `#1? That's basically a Swiss train. Cherish it.`;
@@ -16,8 +15,6 @@ function tagline(lineName: string, rank: number, total: number): string {
   if (rank <= total - 4) return `The ${lineName}: arrival times are more of a vibe than a schedule.`;
   return `The ${lineName} said not today. Or yesterday. Or tomorrow.`;
 }
-
-// ─── Score helpers ────────────────────────────────────────────────────────────
 
 function scoreColor(score: number): string {
   if (score >= 70) return "#2d6a4f";
@@ -30,8 +27,6 @@ function scoreLabel(score: number): string {
   if (score >= 40) return "Fair";
   return "Poor";
 }
-
-// ─── Route Handler ────────────────────────────────────────────────────────────
 
 export async function GET(req: Request) {
   const { searchParams } = new URL(req.url);
@@ -48,11 +43,9 @@ export async function GET(req: Request) {
   const customTagline = searchParams.get("tagline");
   const snapshotTime = searchParams.get("snapshotTime") ?? "This week";
 
-  const compositeColor = scoreColor(composite);
   const compositeLabel = composite >= 70 ? "GOOD" : composite >= 40 ? "FAIR" : "POOR";
   const tl = customTagline ?? tagline(line, rank, total);
 
-  // Load Barlow Condensed 800 for headings + body
   const [barlowBoldData, barlowRegData] = await Promise.all([
     fetch(
       "https://fonts.gstatic.com/s/barlowcondensed/v13/HTx3L3I-JCGChYJ8VI-L6OO_au7B2xY.ttf"
@@ -62,86 +55,57 @@ export async function GET(req: Request) {
     ).then((r) => r.arrayBuffer()),
   ]);
 
+  const scoreRows: [string, number][] = [
+    ["Delay", delay],
+    ["Incident", incident],
+    ["Accessibility", access],
+    ["Composite", composite],
+  ];
+
   return new ImageResponse(
     (
-      <div
-        style={{
-          width: W,
-          height: H,
-          display: "flex",
-          flexDirection: "column",
-          background: "#f5f0e8",
-          fontFamily: "Barlow Condensed, sans-serif",
-        }}
-      >
-        {/* ── Header bar ── */}
-        <div style={{ display: "flex", alignItems: "center", gap: 20, padding: "24px 56px", borderBottom: "5px solid #1a1a1a", background: "#ebe6dc", flexShrink: 0 }}>
-          <div style={{ display: "flex", alignItems: "center", justifyContent: "center", width: 56, height: 56, borderRadius: 999, border: "3px solid #1a1a1a", background: "#D82233", color: "#fff", fontSize: 18, fontWeight: 900, letterSpacing: "0.04em" }}>
-            NY
-          </div>
-          <div style={{ display: "flex", flexDirection: "column" }}>
-            <span style={{ fontSize: 18, fontWeight: 400, letterSpacing: "0.2em", color: "rgba(26,26,26,0.55)", textTransform: "uppercase" }}>NYC Transit</span>
-            <span style={{ fontSize: 28, fontWeight: 900, letterSpacing: "0.08em", color: "#1a1a1a", textTransform: "uppercase" }}>Line Performance</span>
+      <div style={ogStyles.root}>
+        <div style={ogStyles.headerBar}>
+          <div style={ogStyles.headerNyCircle}>NY</div>
+          <div style={ogStyles.headerTitlesCol}>
+            <span style={ogStyles.headerSubtitle}>NYC Transit</span>
+            <span style={ogStyles.headerTitle}>Line Performance</span>
           </div>
         </div>
 
-        {/* ── Main body ── */}
-        <div style={{ display: "flex", flexDirection: "column", alignItems: "center", flex: 1, padding: "56px 80px 48px", justifyContent: "space-between" }}>
-
-          {/* Top: badge + rank + tagline */}
-          <div style={{ display: "flex", flexDirection: "column", alignItems: "center" }}>
-            {/* Big badge */}
-            <div style={{ display: "flex", alignItems: "center", justifyContent: "center", width: 280, height: 280, borderRadius: 999, background: color, border: "8px solid #1a1a1a", color: textColor, fontSize: 140, fontWeight: 900, lineHeight: 1, boxShadow: "6px 6px 0 rgba(0,0,0,0.2)", marginBottom: 36 }}>
-              {line}
-            </div>
-            {/* Rank */}
-            <p style={{ fontSize: 52, fontWeight: 900, color: "#1a1a1a", textAlign: "center", letterSpacing: "0.04em", textTransform: "uppercase", lineHeight: 1.1, margin: 0, marginBottom: 6 }}>
+        <div style={ogStyles.mainBody}>
+          <div style={ogStyles.topBlock}>
+            <div style={ogStyles.badge(color, textColor)}>{line}</div>
+            <p style={ogStyles.rankLine}>
               Ranked #{rank} of {total}
             </p>
-            <p style={{ fontSize: 26, fontWeight: 400, color: "rgba(26,26,26,0.45)", letterSpacing: "0.12em", textTransform: "uppercase", margin: 0, marginBottom: 28 }}>
-              {snapshotTime}
-            </p>
-            {/* Tagline */}
-            <p style={{ fontSize: 34, fontWeight: 400, color: "rgba(26,26,26,0.75)", textAlign: "center", lineHeight: 1.45, fontStyle: "italic", margin: 0, maxWidth: 780 }}>
-              &ldquo;{tl}&rdquo;
-            </p>
+            <p style={ogStyles.snapshotLine}>{snapshotTime}</p>
+            <p style={ogStyles.tagline}>&ldquo;{tl}&rdquo;</p>
           </div>
 
-          {/* Bottom: 4-up score grid — no box, no label */}
-          <div style={{ display: "flex", flexDirection: "row", width: "100%", borderTop: "3px solid rgba(26,26,26,0.12)", paddingTop: 36 }}>
-            {([["Delay", delay], ["Incident", incident], ["Accessibility", access], ["Composite", composite]] as [string, number][]).map(([label, val], i, arr) => {
+          <div style={ogStyles.scoreGrid}>
+            {scoreRows.map(([label, val], i) => {
               const col = scoreColor(val);
               return (
-                <div
-                  key={label}
-                  style={{
-                    display: "flex",
-                    flexDirection: "column",
-                    alignItems: "center",
-                    flex: 1,
-                    borderRight: i < arr.length - 1 ? "3px solid rgba(26,26,26,0.12)" : "none",
-                    padding: "0 16px",
-                  }}
-                >
-                  <span style={{ fontSize: 80, fontWeight: 900, color: col, lineHeight: 1, fontVariantNumeric: "tabular-nums", marginBottom: 10 }}>{val}</span>
-                  <span style={{ fontSize: 30, fontWeight: 900, textTransform: "uppercase", letterSpacing: "0.1em", color: col, marginBottom: 12 }}>{scoreLabel(val)}</span>
-                  <span style={{ fontSize: 22, fontWeight: 900, letterSpacing: "0.14em", textTransform: "uppercase", color: "rgba(26,26,26,0.45)" }}>{label}</span>
+                <div key={label} style={ogStyles.scoreColumn(i, scoreRows.length)}>
+                  <span style={ogStyles.scoreValue(col)}>{val}</span>
+                  <span style={ogStyles.scoreTierText(col)}>{scoreLabel(val)}</span>
+                  <span style={ogStyles.scoreCategory}>{label}</span>
                 </div>
               );
             })}
           </div>
         </div>
 
-        {/* ── Footer ── */}
-        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "20px 56px", borderTop: "5px solid #1a1a1a", background: "#ebe6dc", flexShrink: 0 }}>
-          <span style={{ fontSize: 22, fontWeight: 900, letterSpacing: "0.16em", textTransform: "uppercase", color: "rgba(26,26,26,0.45)" }}>nyctransit.app</span>
-          <span style={{ fontSize: 18, fontWeight: 400, letterSpacing: "0.12em", textTransform: "uppercase", color: "rgba(26,26,26,0.35)" }}>NYC Transit — System Status</span>
+        <div style={ogStyles.footerBar}>
+          <span style={ogStyles.footerUrl}>nyctransit.app</span>
+          <span style={ogStyles.footerCaption}>NYC Transit — System Status</span>
         </div>
       </div>
     ),
     {
-      width: W,
-      height: H,
+      width: CARD_WIDTH,
+      height: CARD_HEIGHT,
       fonts: [
         { name: "Barlow Condensed", data: barlowBoldData, weight: 800, style: "normal" },
         { name: "Barlow Condensed", data: barlowRegData, weight: 400, style: "normal" },

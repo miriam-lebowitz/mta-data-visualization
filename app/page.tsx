@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import TransitDashboardLoader from "@/components/TransitDashboardLoader";
+import TransitDashboardLoader from "../components/TransitDashboardLoader";
 
 export const metadata: Metadata = {
   title: "Live Map",

@@ -12,6 +12,7 @@ import Map, {
 } from "react-map-gl/mapbox";
 import type { MapMouseEvent } from "mapbox-gl";
 import { STATION_COORDS } from "./StationCoords";
+import * as ui from "./styles/LiveMap.styles";
 import type { GeoLocation, LineOption, LiveTrainLocation } from "@/lib/types";
 
 // ─── Local types ─────────────────────────────────────────────────────────────
@@ -121,6 +122,8 @@ function getCoords(slug: string) {
   return coords ?? null;
 }
 
+// This function splits the line segments into smaller 
+// segments to make the map more readable.
 function splitLineSegments(points: Array<{ slug: string }>) {
   const segments: Array<Array<[number, number]>> = [];
   let current: Array<[number, number]> = [];
@@ -145,6 +148,7 @@ function splitLineSegments(points: Array<{ slug: string }>) {
   return segments;
 }
 
+// This function computes the train position on the map.
 function computeTrainPosition(
   schedule: TrainSchedule,
   nowSeconds: number
@@ -189,6 +193,7 @@ async function fetchJson<T>(url: string): Promise<T> {
   return (await res.json()) as T;
 }
 
+// This function fetches the data from the API with concurrency.
 async function mapWithConcurrency<T, R>(
   items: T[],
   concurrency: number,
@@ -424,6 +429,7 @@ export default function LiveMap({
     [stationMarkerData, visibleLineSlugSet, visibleLineSlugs]
   );
 
+  // This function filters the trains to only the visible trains.
   const visibleTrainLocations = useMemo((): LiveTrainLocation[] => {
     return trains.flatMap((train) => {
       if (visibleLineSlugs !== null && !visibleLineSlugSet.has(train.lineSlug)) return [];
@@ -478,18 +484,15 @@ export default function LiveMap({
   // ─── Render ─────────────────────────────────────────────────────────────────
 
   return (
-    <div className="relative w-full h-full aged-paper overflow-hidden">
+    <div className={ui.mapRoot}>
       {/* Film-grain noise overlay */}
       <div
-        className="absolute inset-0 pointer-events-none mix-blend-multiply"
-        style={{
-          backgroundImage:
-            "url(\"data:image/svg+xml,%3Csvg viewBox='0 0 512 512' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.75' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.04'/%3E%3C/svg%3E\")",
-        }}
+        className={ui.grainOverlay}
+        aria-hidden
       />
 
       {/* Last-updated timestamp */}
-      <div className="absolute top-3 right-4 z-[800] retro-panel px-3 py-1 text-[10px] font-bold tracking-widest uppercase text-ink/60">
+      <div className={ui.lastUpdatedBadge}>
         {lastUpdated
           ? `UPDATED ${lastUpdated.toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit", second: "2-digit" })}`
           : "LOADING…"}
@@ -497,17 +500,17 @@ export default function LiveMap({
 
       {/* Initial-load overlay */}
       {loading && (
-        <div className="absolute inset-0 z-[900] flex items-center justify-center">
-          <div className="retro-panel px-8 py-6 text-center">
-            <p className="text-[11px] font-black tracking-[0.08em] uppercase text-ink/70 mb-3">
+        <div className={ui.loadingOverlay}>
+          <div className={ui.loadingPanel}>
+            <p className={ui.loadingText}>
               Loading ...
             </p>
-            <div className="skeleton h-3 w-32 mx-auto" />
+            <div className={ui.loadingSkeleton} />
           </div>
         </div>
       )}
 
-      <div className="relative w-full h-full [filter:sepia(0.15)_contrast(1.1)]">
+      <div className={ui.mapFilterWrap}>
         <Map
           ref={mapRef}
           initialViewState={{ latitude: CITY_CENTER[0], longitude: CITY_CENTER[1], zoom: DEFAULT_ZOOM }}
@@ -552,11 +555,9 @@ export default function LiveMap({
                 }}
               >
                 <div
-                  className="size-2.5 rounded-full cursor-pointer bg-parchment/95 border-2"
-                  style={{
-                    borderColor: isStop ? "rgba(0,0,0,0.85)" : "rgba(0,0,0,0.25)",
-                    boxShadow: isStop ? "0 0 0 4px rgba(0,0,0,0.08)" : "none",
-                  }}
+                  className={`${ui.stationMarkerBase} ${
+                    isStop ? ui.stationMarkerActive : ui.stationMarkerIdle
+                  }`}
                 />
               </Marker>
             );
@@ -571,28 +572,28 @@ export default function LiveMap({
               onClose={() => setSelectedStationSlug(null)}
               offset={10}
             >
-              <div className="retro-panel p-2">
-                <div className="text-[10px] font-black tracking-[0.05em] text-ink capitalize">
+              <div className={ui.popupPanel}>
+                <div className={ui.popupTitle}>
                   {selectedStation.slug.replaceAll("-", " ")}
                 </div>
-                <div className="mt-1 space-y-1">
+                <div className={ui.popupList}>
                   {selectedStation.arrivals.slice(0, 6).map((a) => (
-                    <div key={a.lineId} className="flex items-center justify-between gap-2">
-                      <div className="flex items-center gap-2 min-w-0">
+                    <div key={a.lineId} className={ui.popupRow}>
+                      <div className={ui.popupLineGroup}>
                         <span
-                          className="inline-block size-2.5 rounded-full border border-ink/20"
+                          className={ui.popupLineDot}
                           style={{ background: a.color }}
                           aria-hidden="true"
                         />
-                        <span className="text-[10px] font-black text-ink/70">{a.shortName}</span>
+                        <span className={ui.popupLineName}>{a.shortName}</span>
                       </div>
-                      <div className="text-[10px] font-bold text-ink/70 whitespace-nowrap">
+                      <div className={ui.popupTimes}>
                         UP:{a.upMinutes ?? "—"} · DOWN:{a.downMinutes ?? "—"}
                       </div>
                     </div>
                   ))}
                   {selectedStation.arrivals.length === 0 && (
-                    <div className="text-[10px] text-ink/50 font-mono">No arrivals</div>
+                    <div className={ui.popupEmpty}>No arrivals</div>
                   )}
                 </div>
               </div>
@@ -602,12 +603,12 @@ export default function LiveMap({
           {visibleTrainLocations.map((train) => (
             <Marker key={train.key} latitude={train.lat} longitude={train.lon} anchor="center">
               <div
-                className={`relative flex items-center justify-center size-3.5 rounded-full border-2 border-ink text-[8px] font-extrabold leading-none${train.atStop ? " train-pulse" : ""}`}
+                className={`${ui.trainMarkerBase} ${
+                  train.atStop ? ui.trainMarkerAtStop : ""
+                }`}
                 style={{
                   background: train.color,
                   color: train.textColor,
-                  boxShadow: train.atStop ? "0 0 0 5px rgba(0,0,0,0.25)" : "none",
-                  fontFamily: "var(--font-barlow-condensed), sans-serif",
                 }}
               >
                 {train.lineShortName.substring(0, 2)}
@@ -615,7 +616,7 @@ export default function LiveMap({
                   <span
                     aria-label="Delayed train"
                     title="Delayed"
-                    className="absolute -right-[7px] -top-[7px] flex items-center justify-center size-2.5 rounded-full bg-signal-red border border-ink text-[7px] font-black leading-none text-white"
+                    className={ui.trainDelayBadge}
                   >
                     !
                   </span>
@@ -627,19 +628,19 @@ export default function LiveMap({
       </div>
 
       {/* Legend */}
-      <div className="absolute bottom-3 left-4 z-[800] retro-panel px-3 py-2 max-w-[260px]">
-        <p className="text-[9px] font-black tracking-[0.15em] uppercase text-ink/60 mb-1">Legend</p>
-        <div className="flex items-center gap-3">
-          <div className="flex items-center gap-2">
-            <span className="inline-block size-2 rounded-full border border-ink/30 bg-parchment" />
-            <span className="text-[10px] font-bold text-ink/60">Station</span>
+      <div className={ui.legendPanel}>
+        <p className={ui.legendTitle}>Legend</p>
+        <div className={ui.legendRow}>
+          <div className={ui.legendItem}>
+            <span className={ui.legendDotStation} />
+            <span className={ui.legendLabel}>Station</span>
           </div>
-          <div className="flex items-center gap-2">
-            <span className="inline-block size-2.5 rounded-full border border-ink/50 bg-signal-red" />
-            <span className="text-[10px] font-bold text-ink/60">Train</span>
+          <div className={ui.legendItem}>
+            <span className={ui.legendDotTrain} />
+            <span className={ui.legendLabel}>Train</span>
           </div>
         </div>
-        <p className="text-[9px] text-ink/50 font-mono mt-2">
+        <p className={ui.legendFootnote}>
           Trains move based on `/api/trips` schedules · refresh 30s
         </p>
       </div>

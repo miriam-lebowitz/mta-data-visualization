@@ -2,6 +2,8 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import LineBadge from "./LineBadge";
+import ShareCardPreview from "./ShareCardPreview";
+import * as ui from "./styles/ShareModal.styles";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -27,18 +29,6 @@ interface ShareModalProps {
 }
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
-
-function scoreColor(score: number): string {
-  if (score >= 70) return "var(--signal-green)";
-  if (score >= 40) return "var(--signal-yellow)";
-  return "var(--signal-red)";
-}
-
-function scoreLabel(score: number): string {
-  if (score >= 70) return "GOOD";
-  if (score >= 40) return "FAIR";
-  return "POOR";
-}
 
 function tagline(lineName: string, rank: number, total: number): string {
   if (rank === 1) return `#1? That's basically a Swiss train. Cherish it.`;
@@ -115,77 +105,6 @@ function IconDownload() {
   );
 }
 
-// ─── Share Card Preview (DOM version) ────────────────────────────────────────
-// Mirrors the 1080×1080 square layout from the API route.
-// Authored at CARD_W × CARD_W px, then zoomed down to PREVIEW_W.
-
-const CARD_W = 360;
-const PREVIEW_W = 300;
-const SCALE = PREVIEW_W / CARD_W;
-
-function CardPreview({ ls, rank, total, customTagline, snapshotTime }: { ls: LineScore; rank: number; total: number; customTagline: string; snapshotTime: string }) {
-  const compositeColor = scoreColor(ls.composite);
-
-  return (
-    <div className="mx-auto shrink-0 overflow-hidden" style={{ width: PREVIEW_W, maxWidth: "100%" }}>
-      <div style={{ width: CARD_W, height: CARD_W, zoom: SCALE, background: "#f5f0e8", border: "4px solid #1a1a1a", display: "flex", flexDirection: "column", overflow: "hidden" }}>
-
-        {/* Header */}
-        <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "8px 18px", borderBottom: "3px solid #1a1a1a", background: "#ebe6dc", flexShrink: 0 }}>
-          <div style={{ display: "flex", alignItems: "center", justifyContent: "center", width: 26, height: 26, borderRadius: 999, border: "2px solid #1a1a1a", background: "#D82233", color: "#fff", fontSize: 8, fontWeight: 900, flexShrink: 0 }}>NY</div>
-          <div style={{ display: "flex", flexDirection: "column", lineHeight: 1.2 }}>
-            <span style={{ fontSize: 7, fontWeight: 700, letterSpacing: "0.18em", color: "rgba(26,26,26,0.55)", textTransform: "uppercase" }}>NYC Transit</span>
-            <span style={{ fontSize: 11, fontWeight: 900, letterSpacing: "0.06em", color: "#1a1a1a", textTransform: "uppercase" }}>Line Performance</span>
-          </div>
-        </div>
-
-        {/* Body */}
-        <div style={{ display: "flex", flexDirection: "column", alignItems: "center", flex: 1, padding: "18px 26px 14px", justifyContent: "space-between" }}>
-
-          {/* Top: badge + rank + tagline */}
-          <div style={{ display: "flex", flexDirection: "column", alignItems: "center" }}>
-            {/* Badge */}
-            <div style={{ display: "flex", alignItems: "center", justifyContent: "center", width: 90, height: 90, borderRadius: 999, border: "4px solid #1a1a1a", background: ls.line.color, color: ls.line.text_color, fontSize: 44, fontWeight: 900, lineHeight: 1, boxShadow: "3px 3px 0 rgba(0,0,0,0.2)", marginBottom: 12, flexShrink: 0 }}>
-              {ls.line.short_name}
-            </div>
-            {/* Rank */}
-            <p style={{ fontSize: 20, fontWeight: 900, letterSpacing: "0.04em", textTransform: "uppercase", color: "#1a1a1a", textAlign: "center", margin: 0, lineHeight: 1.1, marginBottom: 4 }}>
-              Ranked #{rank} of {total}
-            </p>
-            <p style={{ fontSize: 8, fontWeight: 700, letterSpacing: "0.12em", textTransform: "uppercase", color: "rgba(26,26,26,0.45)", margin: 0, marginBottom: 12 }}>
-              {snapshotTime}
-            </p>
-            {/* Tagline */}
-            <p style={{ fontSize: 11, color: "rgba(26,26,26,0.75)", textAlign: "center", lineHeight: 1.45, fontStyle: "italic", margin: 0, maxWidth: 260, wordBreak: "break-word" }}>
-              &ldquo;{customTagline}&rdquo;
-            </p>
-          </div>
-
-          {/* Bottom: 4-up score grid — no box, no label */}
-          <div style={{ display: "flex", flexDirection: "row", width: "100%", borderTop: "2px solid rgba(26,26,26,0.12)", paddingTop: 12 }}>
-            {([["Delay", ls.delayScore], ["Incident", ls.incidentScore], ["Accessibility", ls.accessScore], ["Composite", ls.composite]] as [string, number][]).map(([label, val], i, arr) => {
-              const col = scoreColor(val);
-              return (
-                <div key={label} style={{ display: "flex", flexDirection: "column", alignItems: "center", flex: 1, borderRight: i < arr.length - 1 ? "1px solid rgba(26,26,26,0.12)" : "none", padding: "0 4px" }}>
-                  <span style={{ fontSize: 24, fontWeight: 900, color: col, lineHeight: 1, marginBottom: 3 }}>{val}</span>
-                  <span style={{ fontSize: 8, fontWeight: 900, textTransform: "uppercase", letterSpacing: "0.08em", color: col, marginBottom: 4 }}>{scoreLabel(val)}</span>
-                  <span style={{ fontSize: 7, fontWeight: 900, letterSpacing: "0.1em", textTransform: "uppercase", color: "rgba(26,26,26,0.4)" }}>{label}</span>
-                </div>
-              );
-            })}
-          </div>
-        </div>
-
-        {/* Footer */}
-        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "5px 16px", borderTop: "3px solid #1a1a1a", background: "#ebe6dc", flexShrink: 0 }}>
-          <span style={{ fontSize: 7, fontWeight: 900, letterSpacing: "0.16em", textTransform: "uppercase", color: "rgba(26,26,26,0.4)" }}>nyctransit.app</span>
-          <span style={{ fontSize: 7, fontWeight: 700, letterSpacing: "0.1em", textTransform: "uppercase", color: "rgba(26,26,26,0.3)" }}>NYC Transit</span>
-        </div>
-      </div>
-    </div>
-  );
-}
-
 // ─── Toast ────────────────────────────────────────────────────────────────────
 
 function Toast({ message }: { message: string }) {
@@ -193,7 +112,7 @@ function Toast({ message }: { message: string }) {
     <div
       role="status"
       aria-live="polite"
-      className="absolute bottom-16 left-1/2 -translate-x-1/2 retro-panel px-4 py-2 text-[11px] font-black tracking-widest uppercase text-ink whitespace-nowrap z-10"
+      className={ui.toast}
     >
       {message}
     </div>
@@ -334,30 +253,30 @@ export default function ShareModal({ scores, onClose }: ShareModalProps) {
     /* Backdrop — role="presentation" lets the dialog inside own the a11y semantics */
     <div
       role="presentation"
-      className="fixed inset-0 z-[1000] flex items-center justify-center bg-ink/60 backdrop-blur-sm p-4"
+      className={ui.backdrop}
       onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}
       onKeyDown={(e) => { if (e.key === "Escape") onClose(); }}
     >
       <div
-        className="retro-panel w-full max-w-4xl max-h-[90vh] flex flex-col overflow-hidden"
+        className={ui.dialog}
         role="dialog"
         aria-modal="true"
         aria-label="Share your favorite line"
       >
         {/* Modal header */}
-        <div className="flex items-center justify-between px-5 py-3 border-b-4 border-ink shrink-0">
+        <div className={ui.modalHeader}>
           <div>
-            <h2 className="text-base font-black tracking-[0.08em] uppercase text-ink">
+            <h2 className={ui.modalTitle}>
               Share Your Line
             </h2>
-            <p className="text-[9px] font-bold tracking-[0.12em] uppercase text-ink/50 mt-0.5">
+            <p className={ui.modalSubtitle}>
               Pick your favorite subway line to generate a share card
             </p>
           </div>
           <button
             type="button"
             onClick={onClose}
-            className="text-ink/50 hover:text-ink text-2xl font-black leading-none w-8 h-8 flex items-center justify-center"
+            className={ui.closeButton}
             aria-label="Close share modal"
           >
             ×
@@ -365,13 +284,13 @@ export default function ShareModal({ scores, onClose }: ShareModalProps) {
         </div>
 
         {/* Three-column body — line picker | card preview | share buttons */}
-        <div className="flex flex-col sm:flex-row flex-1 min-h-0 overflow-hidden">
+        <div className={ui.bodyColumns}>
           {/* Col 1: line picker */}
-          <div className="sm:w-52 shrink-0 border-b-4 sm:border-b-0 sm:border-r-4 border-ink p-4 overflow-y-auto scrollbar-thin">
-            <p className="text-[9px] font-black tracking-[0.16em] uppercase text-ink/50 mb-3">
+          <div className={ui.pickerColumn}>
+            <p className={ui.pickerTitle}>
               Select a line
             </p>
-            <div className="grid grid-cols-4 sm:grid-cols-3 gap-2">
+            <div className={ui.pickerGrid}>
               {pickerScores.map((ls) => {
                 const isSelected = ls.line.id === selectedId;
                 const lineRank = scores.findIndex((s) => s.line.id === ls.line.id) + 1;
@@ -382,11 +301,12 @@ export default function ShareModal({ scores, onClose }: ShareModalProps) {
                     onClick={() => setSelectedId(ls.line.id)}
                     aria-pressed={isSelected}
                     aria-label={`Select ${ls.line.short_name} line, ranked ${lineRank}`}
-                    className="flex flex-col items-center gap-1 p-1.5 rounded transition-colors hover:bg-ink/5"
-                    style={{
-                      outline: isSelected ? `3px solid ${ls.line.color}` : "none",
-                      outlineOffset: 2,
-                    }}
+                    className={`${ui.linePickerButtonBase} ${
+                      isSelected ? ui.linePickerButtonSelected : ui.linePickerButtonUnselected
+                    }`}
+                    style={
+                      isSelected ? { outlineColor: ls.line.color } : undefined
+                    }
                   >
                     <LineBadge
                       label={ls.line.short_name}
@@ -394,7 +314,7 @@ export default function ShareModal({ scores, onClose }: ShareModalProps) {
                       textColor={ls.line.text_color}
                       size="md"
                     />
-                    <span className="text-[8px] font-bold text-ink/40 tabular-nums">#{lineRank}</span>
+                    <span className={ui.linePickerRank}>#{lineRank}</span>
                   </button>
                 );
               })}
@@ -402,18 +322,24 @@ export default function ShareModal({ scores, onClose }: ShareModalProps) {
           </div>
 
           {/* Col 2: card preview — vertically centered, tighter padding */}
-          <div className="flex-1 px-4 py-4 flex items-center justify-center overflow-y-auto scrollbar-thin border-b-4 sm:border-b-0 sm:border-r-4 border-ink relative">
+          <div className={ui.previewColumn}>
             {selected ? (
-              <CardPreview ls={selected} rank={rank} total={total} customTagline={customTagline} snapshotTime={snapshotTime} />
+              <ShareCardPreview
+                ls={selected}
+                rank={rank}
+                total={total}
+                customTagline={customTagline}
+                snapshotTime={snapshotTime}
+              />
             ) : (
-              <div className="flex flex-col items-center justify-center text-center gap-3">
+              <div className={ui.previewPlaceholder}>
                 <div
-                  className="flex items-center justify-center w-20 h-20 rounded-full border-4 border-ink/20 text-4xl"
+                  className={ui.previewPlaceholderIcon}
                   aria-hidden="true"
                 >
                   🚇
                 </div>
-                <p className="text-[11px] font-black tracking-widest uppercase text-ink/40">
+                <p className={ui.previewPlaceholderText}>
                   Pick a line to preview your card
                 </p>
               </div>
@@ -423,20 +349,20 @@ export default function ShareModal({ scores, onClose }: ShareModalProps) {
 
           {/* Col 3: only shown once a line is selected */}
           {selected && (
-            <div className="sm:w-44 shrink-0 p-4 flex flex-col gap-2 justify-start overflow-y-auto scrollbar-thin">
+            <div className={ui.actionsColumn}>
               {/* Tagline editor */}
-              <div className="flex flex-col gap-1 mb-2">
-                <div className="flex items-center justify-between">
+              <div className={ui.taglineSection}>
+                <div className={ui.taglineLabelRow}>
                   <label
                     htmlFor="tagline-input"
-                    className="text-[9px] font-black tracking-[0.16em] uppercase text-ink/50"
+                    className={ui.taglineLabel}
                   >
                     Tagline
                   </label>
                   <button
                     type="button"
                     onClick={() => setCustomTagline(tagline(selected.line.short_name, rank, total))}
-                    className="text-[8px] font-bold tracking-[0.1em] uppercase text-ink/40 hover:text-ink/70 transition-colors"
+                    className={ui.taglineReset}
                     aria-label="Reset tagline to auto-generated"
                   >
                     Reset
@@ -449,21 +375,21 @@ export default function ShareModal({ scores, onClose }: ShareModalProps) {
                   rows={3}
                   maxLength={150}
                   placeholder="Enter a custom tagline…"
-                  className="w-full resize-none border-2 border-ink bg-[#ebe6dc] px-2 py-1.5 text-[10px] font-bold text-ink leading-relaxed focus:outline-none focus:border-ink scrollbar-thin"
+                  className={ui.taglineTextarea}
                 />
-                <span className={`text-[8px] text-right tabular-nums ${customTagline.length >= 130 ? "text-amber-600" : "text-ink/30"}`}>
+                <span className={`${ui.taglineCountBase} ${customTagline.length >= 130 ? ui.taglineCountWarn : ui.taglineCountMuted}`}>
                   {customTagline.length}/150
                 </span>
               </div>
 
-              <p className="text-[9px] font-black tracking-[0.16em] uppercase text-ink/50 mb-1">
+              <p className={ui.shareSectionTitle}>
                 Share
               </p>
               <button
                 type="button"
                 onClick={() => void handleDownload()}
                 disabled={isDownloading}
-                className="flex items-center gap-2 retro-panel px-3 py-2.5 text-[10px] font-black tracking-[0.1em] uppercase text-ink hover:opacity-80 disabled:opacity-40 transition-opacity w-full"
+                className={ui.shareActionButtonDisabled}
               >
                 <IconDownload />
                 {isDownloading ? "Generating…" : "Download PNG"}
@@ -472,7 +398,7 @@ export default function ShareModal({ scores, onClose }: ShareModalProps) {
               <button
                 type="button"
                 onClick={handleShareX}
-                className="flex items-center gap-2 retro-panel px-3 py-2.5 text-[10px] font-black tracking-[0.1em] uppercase text-ink hover:opacity-80 transition-opacity w-full"
+                className={ui.shareActionButton}
               >
                 <IconX />
                 X / Twitter
@@ -481,7 +407,7 @@ export default function ShareModal({ scores, onClose }: ShareModalProps) {
               <button
                 type="button"
                 onClick={() => void handleShareInstagram()}
-                className="flex items-center gap-2 retro-panel px-3 py-2.5 text-[10px] font-black tracking-[0.1em] uppercase text-ink hover:opacity-80 transition-opacity w-full whitespace-nowrap"
+                className={ui.shareInstagramButton}
               >
                 <IconInstagram />
                 Instagram
@@ -490,7 +416,7 @@ export default function ShareModal({ scores, onClose }: ShareModalProps) {
               <button
                 type="button"
                 onClick={handleCopyLink}
-                className="flex items-center gap-2 retro-panel px-3 py-2.5 text-[10px] font-black tracking-[0.1em] uppercase text-ink hover:opacity-80 transition-opacity w-full"
+                className={ui.shareActionButton}
               >
                 <IconCopy />
                 Copy link

@@ -6,6 +6,7 @@ import RetroToggle from "./RetroToggle";
 import SolariFlip from "./SolariFlip";
 import ScoreBar from "./ScoreBar";
 import ShareModal from "./ShareModal";
+import * as ui from "./styles/LineRankings.styles";
 
 // ─── Types ──────────────────────────────────────────────────────────────────
 
@@ -79,10 +80,10 @@ function scoreClass(score: number): string {
   return "status-bad";
 }
 
-function scoreColorVar(score: number): string {
-  if (score >= 70) return "var(--signal-green)";
-  if (score >= 40) return "var(--signal-yellow)";
-  return "var(--signal-red)";
+function scoreTextClass(score: number): string {
+  if (score >= 70) return "text-signal-green";
+  if (score >= 40) return "text-signal-yellow";
+  return "text-signal-red";
 }
 
 // ─── Row component ───────────────────────────────────────────────────────────
@@ -99,9 +100,9 @@ function RankRow({
   const composite = computeComposite(ls, weights);
 
   return (
-    <div className="flex items-center gap-3 px-4 py-2 border-b-2 border-ink/10 hover:bg-ink/5 transition-colors">
+    <div className={ui.rankRow}>
       {/* Rank number */}
-      <span className="w-7 text-right text-base font-black text-ink/30 shrink-0 tabular-nums">
+      <span className={ui.rankNumber}>
         {rank}
       </span>
 
@@ -114,15 +115,15 @@ function RankRow({
       />
 
       {/* Line name */}
-      <div className="flex-1 min-w-0">
-        <p className="text-sm font-bold tracking-wide text-ink truncate leading-tight">
+      <div className={ui.lineNameBlock}>
+        <p className={ui.lineLongName}>
           {ls.line.long_name}
         </p>
         <ScoreBar score={composite} width="100%" />
       </div>
 
       {/* Sub-scores */}
-      <div className="hidden sm:flex items-center gap-4 shrink-0">
+      <div className={ui.subScoresRow}>
         {weights.delays && (
           <SubScore label="DELAY" value={ls.delayScore} />
         )}
@@ -135,16 +136,13 @@ function RankRow({
       </div>
 
       {/* Composite */}
-      <div className="shrink-0 text-right w-14">
+      <div className={ui.compositeBlock}>
         <SolariFlip
           value={composite}
           decimals={0}
-          className={`text-xl font-black ${scoreClass(composite)}`}
+          className={`${ui.solariComposite} ${scoreClass(composite)}`}
         />
-        <p
-          className="text-[8px] font-bold tracking-widest uppercase"
-          style={{ color: scoreColorVar(composite) }}
-        >
+        <p className={`${ui.compositeLabel} ${scoreTextClass(composite)}`}>
           {composite >= 70 ? "GOOD" : composite >= 40 ? "FAIR" : "POOR"}
         </p>
       </div>
@@ -154,12 +152,9 @@ function RankRow({
 
 function SubScore({ label, value }: { label: string; value: number }) {
   return (
-    <div className="text-center w-14">
-      <p className="text-[8px] font-black tracking-[0.1em] uppercase text-ink/40 mb-0.5">{label}</p>
-      <p
-        className="text-sm font-black tabular-nums leading-none"
-        style={{ color: scoreColorVar(value) }}
-      >
+    <div className={ui.subScoreCell}>
+      <p className={ui.subScoreLabel}>{label}</p>
+      <p className={`${ui.subScoreValue} ${scoreTextClass(value)}`}>
         {value}
       </p>
     </div>
@@ -271,29 +266,26 @@ export default function LineRankings() {
   }).toUpperCase();
 
   return (
-    <div className="flex flex-col flex-1 min-h-0 max-w-4xl mx-auto w-full px-4 py-3">
+    <div className={ui.page}>
       {/* Header panel */}
-      <div className="retro-panel mb-3 px-5 py-3 shrink-0">
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+      <div className={ui.headerPanel}>
+        <div className={ui.headerTopRow}>
           <div>
-            <h1 className="text-xl font-black tracking-[0.06em] uppercase text-ink leading-tight">
+            <h1 className={ui.title}>
               Line Performance
             </h1>
-            <p className="text-[11px] text-ink/50 font-mono tracking-wider">
+            <p className={ui.subtitle}>
               COMPOSITE RANKING — ALL NYC SUBWAY LINES
             </p>
           </div>
 
           {/* Clock + Share */}
-          <div className="flex items-center gap-4 shrink-0">
-            <div className="text-right">
-              <div
-                className="font-mono font-bold text-xl tabular-nums tracking-widest"
-                style={{ color: "var(--ink)", fontFamily: "var(--font-share-tech-mono), monospace" }}
-              >
+          <div className={ui.clockShareRow}>
+            <div className={ui.clockBlock}>
+              <div className={ui.clockTime}>
                 {timeStr}
               </div>
-              <div className="text-[9px] font-bold tracking-[0.15em] text-ink/50">
+              <div className={ui.clockDate}>
                 {dateStr}
               </div>
             </div>
@@ -301,7 +293,7 @@ export default function LineRankings() {
               type="button"
               onClick={() => setShareModalOpen(true)}
               disabled={loading || sortedScores.length === 0}
-              className="retro-panel px-3 py-2 flex items-center gap-2 text-[10px] font-black tracking-[0.12em] uppercase text-ink hover:opacity-80 disabled:opacity-30 transition-opacity shrink-0"
+              className={ui.shareButton}
               aria-label="Share your favorite line"
             >
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
@@ -317,13 +309,13 @@ export default function LineRankings() {
         </div>
 
         {/* Toggle controls */}
-        <div className="mt-3 pt-3 border-t-4 border-ink flex items-start justify-between gap-6">
+        <div className={ui.togglesSection}>
           {/* Left: label + toggles */}
-          <div className="flex items-center gap-6 flex-wrap">
-            <p className="text-[9px] font-black tracking-[0.18em] uppercase text-ink/50 shrink-0">
+          <div className={ui.togglesLeft}>
+            <p className={ui.togglesLabel}>
               Weight Factors
             </p>
-            <div className="flex gap-6 flex-wrap">
+            <div className={ui.togglesRow}>
               <RetroToggle
                 id="toggle-delays"
                 label="Delays"
@@ -349,7 +341,7 @@ export default function LineRankings() {
           </div>
 
           {/* Right: factor key */}
-          <div className="hidden sm:flex flex-col gap-0.5 shrink-0 text-right">
+          <div className={ui.factorKeyColumn}>
             <FactorLegendItem color="var(--signal-green)" label="Delay — avg. wait times" />
             <FactorLegendItem color="var(--signal-yellow)" label="Incident — active alerts" />
             <FactorLegendItem color="#0062CF" label="Accessibility — ADA" />
@@ -358,48 +350,48 @@ export default function LineRankings() {
       </div>
 
       {/* Column headers */}
-      <div className="flex items-center gap-3 px-4 pb-1.5 border-b-4 border-ink shrink-0">
-        <span className="w-7" />
-        <span className="w-9" />
-        <span className="flex-1 text-[9px] font-black tracking-[0.15em] uppercase text-ink/50">
+      <div className={ui.columnHeaders}>
+        <span className={ui.colRankSpacer} />
+        <span className={ui.colBadgeSpacer} />
+        <span className={ui.colLineLabel}>
           Line
         </span>
-        <div className="hidden sm:flex items-center gap-4 shrink-0">
+        <div className={ui.colSubScoresRow}>
           {weights.delays && (
-            <span className="w-14 text-center text-[9px] font-black tracking-[0.1em] uppercase text-ink/50">Delay</span>
+            <span className={ui.colSubScoreHeader}>Delay</span>
           )}
           {weights.incidents && (
-            <span className="w-14 text-center text-[9px] font-black tracking-[0.1em] uppercase text-ink/50">Incident</span>
+            <span className={ui.colSubScoreHeader}>Incident</span>
           )}
           {weights.accessibility && (
-            <span className="w-14 text-center text-[9px] font-black tracking-[0.1em] uppercase text-ink/50">Access</span>
+            <span className={ui.colSubScoreHeader}>Access</span>
           )}
         </div>
-        <span className="w-14 text-right text-[9px] font-black tracking-[0.1em] uppercase text-ink/50">
+        <span className={ui.colScoreHeader}>
           Score
         </span>
       </div>
 
       {/* Rankings list — fills remaining vertical space */}
-      <div className="retro-panel flex-1 min-h-0 overflow-hidden">
+      <div className={ui.listPanel}>
         {loading ? (
-          <div className="p-6 space-y-3">
+          <div className={ui.skeletonList}>
             {Array.from({ length: 8 }, (_, i) => (
-              <div key={i} className="flex items-center gap-3">
-                <div className="skeleton h-8 w-8 rounded-full" />
-                <div className="flex-1 skeleton h-5 rounded" />
-                <div className="skeleton h-8 w-12 rounded" />
+              <div key={i} className={ui.skeletonRow}>
+                <div className={ui.skeletonRank} />
+                <div className={ui.skeletonLine} />
+                <div className={ui.skeletonScore} />
               </div>
             ))}
           </div>
         ) : sortedScores.length === 0 ? (
-          <div className="p-10 text-center">
-            <p className="text-sm font-bold text-ink/50 tracking-widest uppercase">
+          <div className={ui.emptyState}>
+            <p className={ui.emptyMessage}>
               No data available
             </p>
           </div>
         ) : (
-          <div className="h-full overflow-y-auto scrollbar-thin">
+          <div className={ui.scrollList}>
             {sortedScores.map((ls, i) => (
               <RankRow key={ls.line.id} rank={i + 1} ls={ls} weights={weights} />
             ))}
@@ -408,26 +400,21 @@ export default function LineRankings() {
       </div>
 
       {/* Footer */}
-      <div className="mt-2 flex items-center justify-between shrink-0">
-        <p className="text-[9px] font-mono text-ink/40 leading-relaxed">
+      <div className={ui.footer}>
+        <p className={ui.footerNote}>
           DATA: NYC SUBWAY STATUS API + MTA SERVICE ALERTS
           <br />
           SCORES ARE COMPOSITE ESTIMATES · AUTO-REFRESH 30s
         </p>
-        <div className="flex items-center gap-2">
+        <div className={ui.footerLegendRow}>
           {(["normal", "minor", "major"] as const).map((level, i) => (
-            <span key={level} className="flex items-center gap-1">
+            <span key={level} className={ui.footerLegendItem}>
               <span
-                className="inline-block w-2.5 h-2.5 border border-ink"
-                style={{
-                  background: i === 0
-                    ? "var(--signal-green)"
-                    : i === 1
-                    ? "var(--signal-yellow)"
-                    : "var(--signal-red)",
-                }}
+                className={`${ui.footerLegendSwatchBase} ${
+                  i === 0 ? "bg-signal-green" : i === 1 ? "bg-signal-yellow" : "bg-signal-red"
+                }`}
               />
-              <span className="text-[8px] font-bold text-ink/50 uppercase tracking-wider">
+              <span className={ui.footerLegendLabel}>
                 {i === 0 ? "Good" : i === 1 ? "Fair" : "Poor"}
               </span>
             </span>
@@ -447,10 +434,10 @@ export default function LineRankings() {
 
 function FactorLegendItem({ color, label }: { color: string; label: string }) {
   return (
-    <p className="flex items-center justify-end gap-1.5 text-[11px] text-ink/60 leading-tight">
+    <p className={ui.factorLegendRow}>
       {label}
       <span
-        className="inline-block w-2 h-2 rounded-full shrink-0"
+        className={ui.factorLegendSwatch}
         style={{ background: color }}
       />
     </p>

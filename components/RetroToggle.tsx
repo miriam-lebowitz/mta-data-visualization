@@ -1,5 +1,8 @@
 "use client";
 
+import type { CSSProperties } from "react";
+import * as ui from "./styles/RetroToggle.styles";
+
 interface RetroToggleProps {
   id: string;
   label: string;
@@ -18,9 +21,10 @@ export default function RetroToggle({
   return (
     <label
       htmlFor={id}
-      className="flex flex-col items-center gap-2 cursor-pointer select-none group"
+      className={ui.label}
+      style={{ "--toggle-accent": accentColor } as CSSProperties}
     >
-      <span className="text-[10px] font-black tracking-[0.15em] uppercase text-ink/70 group-hover:text-ink transition-colors">
+      <span className={ui.labelText}>
         {label}
       </span>
 
@@ -28,7 +32,7 @@ export default function RetroToggle({
       <input
         id={id}
         type="checkbox"
-        className="sr-only"
+        className={ui.inputHidden}
         checked={checked}
         onChange={(e) => onChange(e.target.checked)}
       />
@@ -36,26 +40,21 @@ export default function RetroToggle({
       {/* Toggle track */}
       <div
         className="retro-toggle-track"
-        style={checked ? { boxShadow: `inset 0 2px 4px rgba(0,0,0,0.5), 0 0 0 2px ${accentColor}` } : undefined}
+        data-state={checked ? "on" : "off"}
         aria-hidden="true"
       >
         {/* Active indicator LED */}
         <span
-          className="absolute top-1 right-1.5 w-1.5 h-1.5 rounded-full transition-colors"
-          style={{ background: checked ? accentColor : "#444" }}
+          className={ui.led}
+          data-on={checked ? "true" : "false"}
         />
         {/* Knob */}
-        <span
-          className="retro-toggle-knob"
-          style={{
-            transform: checked ? "translateX(calc(100% + 4px))" : "translateX(0)",
-          }}
-        />
+        <span className={`retro-toggle-knob ${checked ? "retro-toggle-knob--on" : ""}`} />
       </div>
 
       <span
-        className="text-[9px] font-bold tracking-widest uppercase transition-colors"
-        style={{ color: checked ? accentColor : "#888" }}
+        className={ui.stateLabel}
+        data-on={checked ? "true" : "false"}
       >
         {checked ? "ON" : "OFF"}
       </span>
