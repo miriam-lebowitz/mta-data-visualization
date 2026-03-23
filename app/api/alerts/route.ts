@@ -1,8 +1,12 @@
+import { ACCESS_SCORES } from "@/lib/rankingScores";
+import { getSubwayLineColors } from "@/lib/subwayLineColors";
+
 // Service alerts change at most every minute — cache for 60 seconds.
 export const revalidate = 60;
 
-// MTA public XML service status feed (no API key required).
-const MTA_XML_URL = "https://servicestatus.mta.info/subwayservicestatus.aspx";
+// `servicestatus.mta.info` no longer resolves in DNS; use the same upstream as
+// `/api/lines` — JSON alerts derived from MTA GTFS-RT service alerts.
+const UPSTREAM_ALERTS_URL = "https://nyc-subway-status.com/api/alerts";
 
 export interface Alert {
   id: string;
@@ -11,6 +15,18 @@ export interface Alert {
   description: string;
   severity: "normal" | "minor" | "major";
   updatedAt: string;
+  /** Present for subway line–scoped alerts; drives stripe + line badge color in the UI. */
+  lineColor?: string;
+  lineTextColor?: string;
+}
+
+interface UpstreamAlert {
+  id: string;
+  header: string;
+  description: string;
+  severity: string;
+  route_ids: string[];
+  active_periods?: Array<{ start: string; end: string }>;
 }
 
 function severityFromText(text: string): Alert["severity"] {
@@ -20,51 +36,103 @@ function severityFromText(text: string): Alert["severity"] {
   return "normal";
 }
 
+function severityFromUpstream(a: UpstreamAlert): Alert["severity"] {
+  const s = a.severity.toLowerCase();
+  if (s === "minor" || s === "major") return s;
+  if (s === "severe" || s === "critical" || s === "high") return "major";
+  if (s === "moderate" || s === "low") return "minor";
+  return severityFromText(`${a.header} ${a.description}`);
+}
+
+function normalizeSubwayRouteId(routeId: string): string | null {
+  if (Object.prototype.hasOwnProperty.call(ACCESS_SCORES, routeId)) return routeId;
+  const found = Object.keys(ACCESS_SCORES).find((k) => k.toLowerCase() === routeId.toLowerCase());
+  return found ?? null;
+}
+
+function updatedAtFromUpstream(periods: UpstreamAlert["active_periods"]): string {
+  const start = periods?.[0]?.start;
+  if (start) return start;
+  return new Date().toISOString();
+}
+
+/** Upstream occasionally repeats the same alert id or duplicates route_ids. */
+function mergeUpstreamAlerts(items: UpstreamAlert[]): UpstreamAlert[] {
+  const byId = new Map<string, UpstreamAlert>();
+  for (const raw of items) {
+    const routeIds = [...new Set(raw.route_ids)];
+    const existing = byId.get(raw.id);
+    if (!existing) {
+      byId.set(raw.id, { ...raw, route_ids: routeIds });
+    } else {
+      existing.route_ids = [...new Set([...existing.route_ids, ...routeIds])];
+    }
+  }
+  return [...byId.values()];
+}
+
+function dedupeMappedAlerts(alerts: Alert[]): Alert[] {
+  const seen = new Map<string, Alert>();
+  for (const a of alerts) {
+    const key = `${a.line}\0${a.header}\0${a.description}`;
+    if (seen.has(key)) continue;
+    seen.set(key, a);
+  }
+  return [...seen.values()];
+}
+
+function mapUpstreamToAlerts(items: UpstreamAlert[]): Alert[] {
+  const merged = mergeUpstreamAlerts(items);
+  const alerts: Alert[] = [];
+
+  for (const raw of merged) {
+    const sev = severityFromUpstream(raw);
+    const updatedAt = updatedAtFromUpstream(raw.active_periods);
+
+    for (const rid of raw.route_ids) {
+      const line = normalizeSubwayRouteId(rid);
+      if (!line) continue;
+
+      const palette = getSubwayLineColors(line);
+      alerts.push({
+        id: `${raw.id}:${line}`,
+        line,
+        header: raw.header,
+        description: raw.description,
+        severity: sev,
+        updatedAt,
+        ...(palette && { lineColor: palette.color, lineTextColor: palette.text_color }),
+      });
+    }
+  }
+
+  const unique = dedupeMappedAlerts(alerts);
+  unique.sort((a, b) => a.line.localeCompare(b.line, undefined, { numeric: true }) || a.header.localeCompare(b.header));
+  return unique;
+}
+
 async function fetchAlerts(): Promise<Alert[]> {
-  // Try the MTA XML service status feed (publicly accessible, no key)
-  const res = await fetch(MTA_XML_URL, {
+  const res = await fetch(UPSTREAM_ALERTS_URL, {
     headers: {
       "User-Agent": "mta-data-viz/1.0",
-      Accept: "application/xml, text/xml",
+      Accept: "application/json",
     },
     next: { revalidate: 60 },
   });
 
-  if (!res.ok) throw new Error(`MTA alerts HTTP ${res.status}`);
+  if (!res.ok) throw new Error(`Alerts upstream HTTP ${res.status}`);
 
-  const xml = await res.text();
+  const json = (await res.json()) as {
+    ok?: boolean;
+    data?: { alerts?: UpstreamAlert[] };
+  };
 
-  // Parse XML alerts with simple regex extraction (avoid xml2js dependency)
-  const alerts: Alert[] = [];
-  const lineBlocks = xml.match(/<line>([\s\S]*?)<\/line>/g) ?? [];
-
-  for (const block of lineBlocks) {
-    const nameMatch = block.match(/<name>([^<]+)<\/name>/);
-    const statusMatch = block.match(/<status>([^<]+)<\/status>/);
-    const textMatch = block.match(/<text>([^<]*)<\/text>/);
-    const dateMatch = block.match(/<Date>([^<]+)<\/Date>/);
-    const timeMatch = block.match(/<Time>([^<]+)<\/Time>/);
-
-    if (!nameMatch || !statusMatch) continue;
-
-    const status = statusMatch[1].trim();
-    if (status === "Good Service") continue; // skip healthy lines
-
-    const line = nameMatch[1].trim();
-    const description = textMatch?.[1].trim() ?? "";
-    const updatedAt = `${dateMatch?.[1].trim() ?? ""} ${timeMatch?.[1].trim() ?? ""}`.trim();
-
-    alerts.push({
-      id: `${line}-${status}`,
-      line,
-      header: status,
-      description,
-      severity: severityFromText(status),
-      updatedAt,
-    });
+  const items = json.data?.alerts;
+  if (!json.ok || !Array.isArray(items)) {
+    throw new Error("Alerts upstream returned unexpected JSON");
   }
 
-  return alerts;
+  return mapUpstreamToAlerts(items);
 }
 
 export async function GET() {

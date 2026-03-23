@@ -161,6 +161,10 @@ export const alertCardSeverity =
 
 export const alertCardLine = "text-[9px] font-bold text-ink/40 shrink-0";
 
+/** Line id pill when `lineColor` is set from the API (MTA route color). */
+export const alertCardLineColored =
+  "text-[9px] font-black shrink-0 rounded px-1.5 py-0.5 border border-black/15";
+
 export const alertCardHeader =
   "text-[11px] font-bold text-ink leading-tight mt-0.5 line-clamp-2";
 

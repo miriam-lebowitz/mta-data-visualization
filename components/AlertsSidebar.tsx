@@ -13,6 +13,8 @@ interface Alert {
   description: string;
   severity: ui.AlertSeverity;
   updatedAt: string;
+  lineColor?: string;
+  lineTextColor?: string;
 }
 
 /**
@@ -46,7 +48,8 @@ function AlertCard({ alert }: { alert: Alert }) {
     >
       <div className={ui.alertCardRow}>
         <span
-          className={`${ui.alertCardStripe} ${ui.alertSeverityStripe[alert.severity]}`}
+          className={`${ui.alertCardStripe} ${alert.lineColor ? "" : ui.alertSeverityStripe[alert.severity]}`}
+          style={alert.lineColor ? { backgroundColor: alert.lineColor } : undefined}
           aria-hidden="true"
         />
         <div className={ui.alertCardBody}>
@@ -56,7 +59,19 @@ function AlertCard({ alert }: { alert: Alert }) {
             >
               {ui.alertSeverityLabel[alert.severity]}
             </span>
-            <span className={ui.alertCardLine}>{alert.line}</span>
+            <span
+              className={alert.lineColor ? ui.alertCardLineColored : ui.alertCardLine}
+              style={
+                alert.lineColor
+                  ? {
+                      backgroundColor: alert.lineColor,
+                      color: alert.lineTextColor ?? "#ffffff",
+                    }
+                  : undefined
+              }
+            >
+              {alert.line}
+            </span>
           </div>
           <p className={ui.alertCardHeader}>{alert.header}</p>
         </div>
