@@ -14,6 +14,7 @@ import type { MapMouseEvent } from "mapbox-gl";
 import {
   computeTrainPosition,
   fetchJson,
+  fetchJsonOrNotFound,
   getCoords,
   mapWithConcurrency,
   splitLineSegments,
@@ -186,16 +187,23 @@ export default function LiveMap({
 
       const tripDetails = await mapWithConcurrency(tripRequests, FETCH_CONCURRENCY, async (tr) => ({
         tr,
-        tripJson: await fetchJson<{ ok: boolean; data: TripResponse }>(
+        tripJson: await fetchJsonOrNotFound<{ ok: boolean; data: TripResponse }>(
           `/api/trips/${encodeURIComponent(tr.tripId)}?route=${encodeURIComponent(tr.routeSlug)}`,
           signal,
+          { tripId: tr.tripId, routeSlug: tr.routeSlug },
         ),
       }));
       if (refreshGenerationRef.current !== gen) return;
 
       const newTrains: TrainSchedule[] = [];
       for (const { tr, tripJson } of tripDetails) {
-        if (!tripJson?.ok || !tripJson.data?.stops) continue;
+        if (tripJson == null) continue;
+        if (!tripJson.ok || !tripJson.data?.stops) {
+          if (process.env.NODE_ENV === "development") {
+            console.warn(`[live map] Trip response ok=false: trip=${tr.tripId} route=${tr.routeSlug}`);
+          }
+          continue;
+        }
         const delayed = tripJson.data.stops.some((s) =>
           (s.status ?? "").toLowerCase().includes("delay"),
         );

@@ -157,12 +157,66 @@ export function computeTrainPosition(
 }
 
 export async function fetchJson<T>(url: string, signal?: AbortSignal): Promise<T> {
-  const res = await fetch(url, {
-    signal,
-    headers: { "User-Agent": "mta-data-viz/1.0" },
-  });
+  let res: Response;
+  try {
+    res = await fetch(url, {
+      signal,
+      headers: { "User-Agent": "mta-data-viz/1.0" },
+    });
+  } catch (e) {
+    if (e instanceof DOMException && e.name === "AbortError") throw e;
+    throw new Error("Could not reach the server. Check your connection and try again.");
+  }
+  if (res.status === 404 || res.status === 410) {
+    throw new Error("Map data could not be found. It may have moved or be temporarily unavailable.");
+  }
+  if (res.status === 429) {
+    throw new Error("Too many requests. Please wait a moment and try again.");
+  }
   if (!res.ok) {
-    throw new Error(`HTTP ${res.status}: ${url}`);
+    throw new Error("Map data failed to load. The map will try again on the next refresh.");
+  }
+  return (await res.json()) as T;
+}
+
+/** Shown when a trip request fails for reasons other than a missing trip (404/410). */
+export const TRIP_FETCH_FAILED_USER_MESSAGE =
+  "Live train positions could not be loaded. The map will try again on the next refresh.";
+
+/**
+ * Like {@link fetchJson}, but handles missing upstream trips gracefully:
+ * - 404 / 410: returns null (trip no longer exists — skip it, don't show an error).
+ * - 429: throws a short user-facing rate-limit message.
+ * - Other non-OK: throws {@link TRIP_FETCH_FAILED_USER_MESSAGE} instead of raw HTTP details.
+ */
+export async function fetchJsonOrNotFound<T>(
+  url: string,
+  signal: AbortSignal | undefined,
+  logContext?: { tripId: string; routeSlug: string },
+): Promise<T | null> {
+  let res: Response;
+  try {
+    res = await fetch(url, {
+      signal,
+      headers: { "User-Agent": "mta-data-viz/1.0" },
+    });
+  } catch (e) {
+    if (e instanceof DOMException && e.name === "AbortError") throw e;
+    throw new Error(TRIP_FETCH_FAILED_USER_MESSAGE);
+  }
+  if (res.status === 404 || res.status === 410) {
+    if (process.env.NODE_ENV === "development" && logContext) {
+      console.warn(
+        `[live map] Trip schedule not found (${res.status}): trip=${logContext.tripId} route=${logContext.routeSlug}`,
+      );
+    }
+    return null;
+  }
+  if (res.status === 429) {
+    throw new Error("Too many requests. Please wait a moment and try again.");
+  }
+  if (!res.ok) {
+    throw new Error(TRIP_FETCH_FAILED_USER_MESSAGE);
   }
   return (await res.json()) as T;
 }
